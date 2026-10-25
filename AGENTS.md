@@ -15,6 +15,28 @@ A gen1recomp **content mod** for the Gen 3 games (FireRed, LeafGreen, Emerald):
 This repository contains **no engine source**. It runs on top of gen1recomp via
 the mod API.
 
+## Current state
+
+Present today:
+
+- `data/types.lua` — complete 18-type Gen 9 chart, 324 matchups;
+- `data/species_fairy.lua` — the 18 Fairy species;
+- `data/move_types_changed.lua` — Charm, Moonlight, Sweet Kiss, Curse;
+- `main.lua` — GEN9/VANILLA switch, non-battle guard, four working hooks;
+- `tests/data_test.lua`, `tests/main_smoke_test.lua`, engine smoke test.
+
+Scaffolded, empty until generated:
+
+- `data/move_categories.lua`;
+- `data/moves_fairy.lua`;
+- `data/learnsets_fairy.lua`.
+
+Planned, not implemented:
+
+- Trade evolution at level 40;
+- IV/EV viewer;
+- an `ENHANCEMENTS` submenu (the rows currently sit at the bottom of OPTIONS).
+
 ## Hard rules
 
 1. Never copy gen1recomp engine source into this repository.
@@ -33,12 +55,18 @@ the mod API.
      works and the battle move menu can show it.
 5. Do not add Fairy TMs or HMs. The Gen 3 TM/HM list stays untouched.
 6. Do not add new abilities.
-7. A data-mode change is only allowed **outside battle**. In battle, refuse the
+7. `data/moves_fairy.lua` must never contain `category`. The official engine's
+   `UnifiedContent` rejects it. Put per-move categories in
+   `data/move_categories.lua`; `main.lua` applies them at runtime.
+8. A data-mode change is only allowed **outside battle**. In battle, refuse the
    change and leave the current mode untouched.
-8. `affects_link` is `true`. Different data modes must not link with each other.
-9. Do not commit ROMs, ROM-derived sprites, or CFRU/DPE artwork. The Fairy type
-   icon is optional; public releases should use a self-drawn icon or the text
-   fallback.
+9. `affects_link` is `true`. Different data modes must not link with each other.
+10. Do not commit ROMs, ROM-derived sprites, or CFRU/DPE artwork. The Fairy type
+    icon is optional; public releases should use a self-drawn icon or the text
+    fallback.
+11. This mod owns the Gen 9 type overlay and the 18 species while `GEN9` is
+    active. Do not combine it with another mod that replaces `Types` or
+    `Pokemon._types`; document the conflict instead.
 
 ## Public URLs
 
@@ -61,7 +89,8 @@ the mod API.
   in full mode, per-move categories.
 - If `data/types.lua` has `complete = false`, the mod stays in `VANILLA` and
   logs a warning. This prevents a half-generated chart from replacing the
-  vanilla matchups.
+  vanilla matchups. The committed chart is `complete = true`; the guard remains
+  for future regenerations.
 
 ## Engine compatibility detection
 
@@ -85,15 +114,14 @@ ENGINE_DIR=/path/to/gen1recomp luajit tests/engine_smoke_test.lua
 python3 tools/export_showdown.py --showdown /path/to/pokemon-showdown
 python3 tools/extract_fairy_icon.py --cfru /path/to/Complete-Fire-Red-Upgrade
 
-# path hygiene
-git grep -n -I -E "/Users/[^/]+|C:\\\\Users|/home/[a-z]" -- . \
-  ':!*.png' ':!*.rgba' ':!*.bin'
+# path hygiene: run your own check for local home-directory paths before commit
 ```
 
 ## Release checklist
 
 - [ ] `data/types.lua` has `complete = true` and a full 18×18 matchup table.
 - [ ] `tests/data_test.lua` passes.
+- [ ] `tests/main_smoke_test.lua` passes.
 - [ ] No local absolute paths.
 - [ ] `manifest.json` still declares `affects_link: true`.
 - [ ] README compatibility matrix matches the current engine state.

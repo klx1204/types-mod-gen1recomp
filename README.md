@@ -42,9 +42,12 @@ move because the engine has no per-move category yet.
 2. Copy this folder into the game's `mods/` directory as
    `mods/types_mod_gen1recomp/`.
 3. Enable **Gen 9 Types & Battle Data** in the mod manager.
-4. Open **OPTIONS → ENHANCEMENTS**:
+4. Open **OPTIONS** and scroll to the rows appended at the bottom:
    - `BATTLE DATA`: `GEN 9` / `VANILLA`
    - individual enhancement toggles
+
+There is no separate `ENHANCEMENTS` page yet: the rows are added to the
+top-level OPTIONS list.
 
 The data mode can only be changed outside battle. In battle the option refuses
 the change and keeps the current mode.

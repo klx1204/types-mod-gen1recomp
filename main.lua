@@ -43,6 +43,35 @@ local function moveId(Moves, name)
   return tonumber(name)
 end
 
+local function currentGame()
+  local Runtime = package.loaded["src.core.game3.runtime"]
+  if not Runtime then
+    local ok, loaded = pcall(require, "src.core.game3.runtime")
+    if ok then Runtime = loaded end
+  end
+  return Runtime and Runtime._game or nil
+end
+
+local function gameData()
+  local game = currentGame()
+  return game and game.data or nil
+end
+
+local function moveKey(Moves, id, name)
+  local const = Moves.constName and Moves.constName(id)
+  return const or name or id
+end
+
+local function moveRows(Moves, Pokemon, Data, id, name)
+  local key = moveKey(Moves, id, name)
+  local rom = Moves._rom and Moves._rom[id]
+  local linked = Moves._linkRows and Moves._linkRows[id]
+  local battle = Pokemon and Pokemon._battleMoves and Pokemon._battleMoves[id]
+  local dataRow = Data and Data.moves
+    and (Data.moves[key] or Data.moves[name] or Data.moves[id])
+  return rom, linked, battle, dataRow
+end
+
 return function(mod)
   local Types = require("src.core.game3.battle.types")
   local FULL = type(rawget(Types, "MOVE_CATEGORY")) == "boolean"
@@ -85,13 +114,18 @@ return function(mod)
     end
     -- Force the lazy loaders before snapshotting.
     pcall(Pokemon.types, 1)
+    pcall(Pokemon.battleMove, 1)
     pcall(Moves.romReady)
 
+    local Data = gameData()
     baseline = {
       types = deepcopy(Pokemon._types or {}),
       learnsets = {},
       moveTypes = {},
+      battleTypes = {},
+      dataTypes = {},
       categories = {},
+      battleCategories = {},
     }
 
     for name in pairs(data.species_fairy or {}) do
@@ -103,14 +137,21 @@ return function(mod)
 
     for name in pairs(data.move_types_changed or {}) do
       local id = moveId(Moves, name)
-      local row = id and Moves._rom and Moves._rom[id]
-      if row then baseline.moveTypes[id] = row.type end
+      if id then
+        local rom, linked, battle, dataRow = moveRows(Moves, Pokemon, Data, id, name)
+        if rom then baseline.moveTypes[id] = rom.type end
+        if battle then baseline.battleTypes[id] = battle.type end
+        if dataRow then baseline.dataTypes[id] = dataRow.type end
+      end
     end
 
     for name in pairs(data.move_categories or {}) do
       local id = moveId(Moves, name)
-      local row = id and Moves._rom and Moves._rom[id]
-      if row then baseline.categories[id] = row.category end
+      if id then
+        local rom, linked, battle = moveRows(Moves, Pokemon, Data, id, name)
+        if rom then baseline.categories[id] = rom.category end
+        if battle then baseline.battleCategories[id] = battle.category end
+      end
     end
 
     return true
@@ -189,15 +230,19 @@ return function(mod)
     end
   end
 
-  local function applyMoveTypes(enable, Moves)
+  local function applyMoveTypes(enable, Moves, Pokemon, Data)
     if not Moves then return end
     local index = data.types.index or {}
     if not enable then
       for id, typeNum in pairs(baseline.moveTypes) do
-        local row = Moves._rom and Moves._rom[id]
-        if row then row.type = typeNum end
-        local linked = Moves._linkRows and Moves._linkRows[id]
+        local rom, linked, battle = moveRows(Moves, Pokemon, Data, id)
+        if rom then rom.type = typeNum end
         if linked then linked.type = typeNum end
+        if battle then battle.type = typeNum end
+      end
+      for id, typeName in pairs(baseline.dataTypes) do
+        local _, _, _, dataRow = moveRows(Moves, Pokemon, Data, id)
+        if dataRow then dataRow.type = typeName end
       end
       return
     end
@@ -205,32 +250,33 @@ return function(mod)
       local id = moveId(Moves, name)
       local typeNum = index[typeName]
       if id and typeNum then
-        local row = Moves._rom and Moves._rom[id]
-        if row then row.type = typeNum end
-        local linked = Moves._linkRows and Moves._linkRows[id]
+        local rom, linked, battle, dataRow = moveRows(Moves, Pokemon, Data, id, name)
+        if rom then rom.type = typeNum end
         if linked then linked.type = typeNum end
+        if battle then battle.type = typeNum end
+        if dataRow then dataRow.type = typeName end
       end
     end
   end
 
-  local function applyCategories(enable, Moves)
+  local function applyCategories(enable, Moves, Pokemon, Data)
     if not FULL or not Moves then return end
     if not enable then
       for id, category in pairs(baseline.categories) do
-        local row = Moves._rom and Moves._rom[id]
-        if row then row.category = category end
-        local linked = Moves._linkRows and Moves._linkRows[id]
+        local rom, linked, battle = moveRows(Moves, Pokemon, Data, id)
+        if rom then rom.category = category end
         if linked then linked.category = category end
+        if battle then battle.category = category end
       end
       return
     end
     for name, category in pairs(data.move_categories or {}) do
       local id = moveId(Moves, name)
       if id then
-        local row = Moves._rom and Moves._rom[id]
-        if row then row.category = category end
-        local linked = Moves._linkRows and Moves._linkRows[id]
+        local rom, linked, battle = moveRows(Moves, Pokemon, Data, id, name)
+        if rom then rom.category = category end
         if linked then linked.category = category end
+        if battle then battle.category = category end
       end
     end
   end
@@ -256,6 +302,7 @@ return function(mod)
     local okM, Moves = pcall(require, "src.core.game3.battle.moves")
     if not okP then Pokemon = nil end
     if not okM then Moves = nil end
+    local Data = gameData()
 
     if mode == "GEN9" then
       Types.useOverlay({
@@ -265,14 +312,14 @@ return function(mod)
       })
       applySpeciesTypes(true, Pokemon)
       applyLearnsets(true, Pokemon)
-      applyMoveTypes(true, Moves)
-      applyCategories(true, Moves)
+      applyMoveTypes(true, Moves, Pokemon, Data)
+      applyCategories(true, Moves, Pokemon, Data)
     else
       Types.clearOverlay()
       applySpeciesTypes(false, Pokemon)
       applyLearnsets(false, Pokemon)
-      applyMoveTypes(false, Moves)
-      applyCategories(false, Moves)
+      applyMoveTypes(false, Moves, Pokemon, Data)
+      applyCategories(false, Moves, Pokemon, Data)
     end
 
     current = mode
@@ -281,16 +328,24 @@ return function(mod)
     return true
   end
 
-  local function toggleMode()
+  local function notify(game, text)
+    if game and mod.ui and mod.ui.TextBox then
+      local ok = pcall(function() mod.ui.TextBox.new(game, text, nil) end)
+      if ok then return end
+    end
+    mod.log:warn("%s", text)
+  end
+
+  local function toggleMode(game)
     local target = current == "GEN9" and "VANILLA" or "GEN9"
     local ok, why = apply(target)
     if not ok then
       if why == "battle" then
-        mod.log:warn("BATTLE DATA cannot change during battle")
+        notify(game, "BATTLE DATA cannot change during battle.")
       elseif why == "data incomplete" then
-        mod.log:warn("Gen 9 data is incomplete; run tools/export_showdown.py first")
+        notify(game, "Gen 9 data is incomplete. Run the data exporter first.")
       else
-        mod.log:warn("BATTLE DATA switch failed: %s", tostring(why))
+        notify(game, "BATTLE DATA switch failed: " .. tostring(why))
       end
       return false
     end
@@ -331,7 +386,7 @@ return function(mod)
       id = "gen9_battle_data",
       label = "BATTLE DATA",
       value = function() return current end,
-      step = function() return toggleMode() end,
+      step = function(game) return toggleMode(game) end,
     }
 
     local function toggleRow(id, label, key)

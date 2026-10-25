@@ -22,13 +22,12 @@ REQUIRED = [
 
 # A real local path, not a /path/to placeholder in documentation.
 _USER_PREFIX = "/Users/"
-LOCAL_PATH = re.compile(_USER_PREFIX + r"[^/]+/Downloads|C:\\\\Users\\\\|/home/[a-z]+/")
+LOCAL_PATH = re.compile(_USER_PREFIX + r"[^/]+/|C:\\\\Users\\\\|/home/[a-z]+/")
 
 # The checker itself contains the pattern; it is not a local reference.
 SKIP = {
     (ROOT / "tools" / "build_data.py").resolve(),
     (ROOT / ".github" / "workflows" / "ci.yml").resolve(),
-    (ROOT / "docs" / "ci.yml.pending").resolve(),
 }
 
 

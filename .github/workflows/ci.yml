@@ -15,8 +15,8 @@ jobs:
       - name: Reject local absolute paths
         run: |
           P="/Users/"
-          Q="[A-Za-z0-9._-]+"
-          R="/Downloads"
+          Q="[^/]+"
+          R="/"
           if grep -RInE "${P}${Q}${R}|C:\\\\Users\\\\|/home/[a-z]+/" \
               --exclude-dir=.git --exclude='*.png' --exclude='*.rgba' --exclude='*.bin' .; then
             echo "local absolute path found" >&2
@@ -26,6 +26,11 @@ jobs:
         run: python3 tools/build_data.py
       - name: Lua data test
         run: luajit tests/data_test.lua
+      - name: Load mod entry
+        run: |
+          luajit -e "assert(loadfile('main.lua'))"
+          luajit tests/main_smoke_test.lua
+          luajit tests/apply_test.lua
 
   engine:
     runs-on: ubuntu-latest
