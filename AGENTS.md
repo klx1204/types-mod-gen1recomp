@@ -83,6 +83,11 @@ Planned, not implemented:
     against that registry, so a move with `type = "FAIRY"` is rejected when
     only the runtime overlay knows about Fairy. Keep the overlay for the
     instant `GEN 9` / `VANILLA` switch.
+16. Also set `Types.CUSTOM_NAMES[18] = "FAIRY"` when the engine exposes it.
+    The overlay is cleared on a VANILLA switch and may be rebuilt during a
+    link battle, while `Pokemon._types` keeps 18 for a saved Pokémon. Without
+    the persistent name, Emerald reads past the end of `gTypeNames` and shows
+    the first contest category ("COOL") as the second type.
 
 ## Public URLs
 

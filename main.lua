@@ -77,6 +77,15 @@ return function(mod)
   local Types = require("src.core.game3.battle.types")
   local FULL = type(rawget(Types, "MOVE_CATEGORY")) == "boolean"
 
+  -- The Fairy name has to survive clearOverlay(): a saved Pokémon can still
+  -- reference type 18 after switching to VANILLA, and a link battle may
+  -- rebuild the chart behind the mod's back.  Without this the ROM lookup
+  -- runs past the end of gTypeNames and Emerald shows the first contest
+  -- category ("COOL") as the second type.
+  if type(Types.CUSTOM_NAMES) == "table" then
+    Types.CUSTOM_NAMES[18] = "FAIRY"
+  end
+
   local data = {}
   for _, name in ipairs({
     "types",
@@ -174,20 +183,6 @@ return function(mod)
     flat[#flat + 1] = -1
     flat[#flat + 1] = 0
     return flat
-  end
-
-  -- VANILLA still has the 18 custom moves in the ROM table, so a saved
-  -- Pokémon can reference type 18.  Keep the name resolvable; the chart and
-  -- the physical/special flags stay native.
-  local function keepFairyName()
-    if type(Types.NATIVE_TABLE) ~= "table" then return end
-    pcall(function()
-      Types.useOverlay({
-        table = Types.NATIVE_TABLE,
-        physical = Types.NATIVE_PHYSICAL,
-        names = { [18] = "FAIRY" },
-      })
-    end)
   end
 
   local function applySpeciesTypes(enable, Pokemon)
@@ -341,7 +336,6 @@ return function(mod)
       applyLearnsets(false, Pokemon, Moves)
       applyMoveTypes(false, Moves, Pokemon, Data)
       applyCategories(false, Moves, Pokemon, Data)
-      keepFairyName()
     end
 
     current = mode
