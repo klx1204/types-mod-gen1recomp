@@ -95,18 +95,9 @@ ENGINE_DIR=/path/to/gen1recomp luajit tests/engine_smoke_test.lua
 
 ### CI
 
-The GitHub Actions workflow is staged at `docs/ci.yml.pending`. It is not under
-`.github/workflows/` yet because the pushing token needs the `workflow` scope
-(or the fine-grained **Workflows: Read and write** permission). Once that is
-granted, move it into place:
-
-```bash
-mkdir -p .github/workflows
-mv docs/ci.yml.pending .github/workflows/ci.yml
-git add .github/workflows/ci.yml
-git commit -m "Enable CI workflow"
-git push
-```
+`.github/workflows/ci.yml` validates the manifest and data tables, rejects
+local absolute paths, runs `tests/data_test.lua`, and checks out the
+`gen1recomp-ps-split` fork for an engine smoke test.
 
 See `AGENTS.md` for the hard rules and the two-repository architecture.
 

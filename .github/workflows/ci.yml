@@ -14,7 +14,9 @@ jobs:
           sudo apt-get install -y luajit
       - name: Reject local absolute paths
         run: |
-          P="/Users/"; Q="[A-Za-z0-9._-]+"; R="/Downloads"
+          P="/Users/"
+          Q="[A-Za-z0-9._-]+"
+          R="/Downloads"
           if grep -RInE "${P}${Q}${R}|C:\\\\Users\\\\|/home/[a-z]+/" \
               --exclude-dir=.git --exclude='*.png' --exclude='*.rgba' --exclude='*.bin' .; then
             echo "local absolute path found" >&2

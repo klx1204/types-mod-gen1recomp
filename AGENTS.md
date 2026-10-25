@@ -18,7 +18,7 @@ the mod API.
 ## Hard rules
 
 1. Never copy gen1recomp engine source into this repository.
-2. Never hard-code a local absolute path (`/Users/...`, `C:\...`, `/home/...`).
+2. Never hard-code a local absolute path (a home-directory path or a Windows drive path).
    Offline tools accept explicit arguments:
    - `--showdown <path>` or `SHOWDOWN_DIR`
    - `--cfru <path>` or `CFRU_DIR`
