@@ -85,6 +85,10 @@ return function(mod)
   if type(Types.CUSTOM_NAMES) == "table" then
     Types.CUSTOM_NAMES[18] = "FAIRY"
   end
+  -- Optional 32x16 badge; menus fall back to the name if it cannot load.
+  if type(Types.CUSTOM_ICONS) == "table" and type(mod.path) == "string" then
+    Types.CUSTOM_ICONS[18] = mod.path .. "/assets/type_icons/fairy.png"
+  end
 
   local data = {}
   for _, name in ipairs({

@@ -88,6 +88,10 @@ Planned, not implemented:
     link battle, while `Pokemon._types` keeps 18 for a saved Pokémon. Without
     the persistent name, Emerald reads past the end of `gTypeNames` and shows
     the first contest category ("COOL") as the second type.
+17. Set `Types.CUSTOM_ICONS[18]` to the bundled 32x16 badge when the engine
+    exposes it. The summary screen indexes the ROM icon sheet by type id and
+    frame 18 is COOL, so the icon has to come from `assets/type_icons` or the
+    screen falls back to the type name.
 
 ## Public URLs
 
