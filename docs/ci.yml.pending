@@ -1,0 +1,46 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LuaJIT
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luajit
+      - name: Reject local absolute paths
+        run: |
+          P="/Users/"; Q="[A-Za-z0-9._-]+"; R="/Downloads"
+          if grep -RInE "${P}${Q}${R}|C:\\\\Users\\\\|/home/[a-z]+/" \
+              --exclude-dir=.git --exclude='*.png' --exclude='*.rgba' --exclude='*.bin' .; then
+            echo "local absolute path found" >&2
+            exit 1
+          fi
+      - name: Validate manifest and data
+        run: python3 tools/build_data.py
+      - name: Lua data test
+        run: luajit tests/data_test.lua
+
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: klx1204/gen1recomp-ps-split
+          ref: ps-split
+          path: engine
+      - name: Install LuaJIT
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luajit
+      - name: Link the mod into the engine
+        run: ln -s "$GITHUB_WORKSPACE" engine/mods/types_mod_gen1recomp
+      - name: Engine smoke test
+        run: |
+          cd engine
+          luajit tests/run_tests.lua
