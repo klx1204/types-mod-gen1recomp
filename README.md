@@ -85,6 +85,15 @@ Spirit Break 100% SpA -1, Strange Steam 20% confusion, Magical Torque 30%
 confusion, Springtide Storm 30% Atk -1. Alluring Voice's conditional and
 Sparkly Swirl's team-heal special cases are not modeled.
 
+The move records carry a **string** effect id such as
+`ATTACK_DOWN_SIDE_EFFECT`, not the numeric `battle_move_effects.h` value. The
+engine's Gen 3 content writer (`UnifiedEffects.write`) owns that mapping; a
+numeric value is rejected at load time. The mod also registers the FAIRY type
+and its 324 matchups in the engine's `type_chart` registry before it registers
+the moves, because the move writer validates every move type against that
+registry. The runtime overlay is still what makes the `GEN 9` / `VANILLA`
+switch instant.
+
 `data.pokemon` is not rewritten; the runtime tables (`Pokemon._types`,
 `Pokemon._learnsets`, `Moves._rom`, `Pokemon._battleMoves`) are the source of
 truth while `GEN 9` is active.

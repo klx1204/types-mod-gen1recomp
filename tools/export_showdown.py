@@ -38,24 +38,33 @@ SHOWDOWN_TO_INTERNAL = {
 
 MULTIPLIER = {0: 10, 1: 20, 2: 5, 3: 0}
 
-# Gen 3-safe effects, from src/core/game3/battle/effect_ids.lua.
+# Gen 3-safe effects.  The mod API needs the *string* id that the engine's
+# UnifiedEffects round-trips for Gen 3; these names map 1:1 to the numeric
+# battle_move_effects.h ids in src/core/game3/battle/effect_ids.lua.
+#   NO_ADDITIONAL_EFFECT=0        SWIFT_EFFECT=17 (ALWAYS_HIT)
+#   DRAIN_HP_EFFECT=3 (ABSORB)    ATTACK_DOWN1_EFFECT=18
+#   HEAL_EFFECT=32                SUPER_FANG_EFFECT=40
+#   RECOIL_EFFECT=48              OVERHEAT=204
+#   EXPLODE_EFFECT=7 (EXPLOSION)  ATTACK_DOWN_SIDE_EFFECT=68
+#   SPECIAL_ATTACK_DOWN_HIT=71    CONFUSION_SIDE_EFFECT=76
 EFFECTS = {
-    "DRAINING_KISS": (3, 0),      # ABSORB (50% in Gen 3; documented approximation)
-    "DISARMING_VOICE": (17, 0),   # ALWAYS_HIT
-    "BABY_DOLL_EYES": (18, 1),    # ATTACK_DOWN, priority +1
-    "PLAY_NICE": (18, 0),         # ATTACK_DOWN
-    "FLORAL_HEALING": (32, 0),    # RESTORE_HP
-    "NATURES_MADNESS": (40, 0),   # SUPER_FANG
-    "LIGHT_OF_RUIN": (48, 0),     # RECOIL
-    "FLEUR_CANNON": (204, 0),     # OVERHEAT
-    "MISTY_EXPLOSION": (7, 0),    # EXPLOSION
-    "PLAY_ROUGH": (68, 0),        # ATTACK_DOWN_HIT
-    "MOONBLAST": (71, 0),         # SPECIAL_ATTACK_DOWN_HIT
-    "SPIRIT_BREAK": (71, 0),      # SPECIAL_ATTACK_DOWN_HIT
-    "STRANGE_STEAM": (76, 0),     # CONFUSE_HIT
-    "MAGICAL_TORQUE": (76, 0),    # CONFUSE_HIT
-    "SPRINGTIDE_STORM": (68, 0),  # ATTACK_DOWN_HIT
+    "DRAINING_KISS": ("DRAIN_HP_EFFECT", 0),          # ABSORB, 50% in Gen 3
+    "DISARMING_VOICE": ("SWIFT_EFFECT", 0),           # ALWAYS_HIT
+    "BABY_DOLL_EYES": ("ATTACK_DOWN1_EFFECT", 1),     # ATTACK_DOWN, priority +1
+    "PLAY_NICE": ("ATTACK_DOWN1_EFFECT", 0),          # ATTACK_DOWN
+    "FLORAL_HEALING": ("HEAL_EFFECT", 0),             # RESTORE_HP
+    "NATURES_MADNESS": ("SUPER_FANG_EFFECT", 0),      # SUPER_FANG
+    "LIGHT_OF_RUIN": ("RECOIL_EFFECT", 0),            # RECOIL (1/4 in Gen 3)
+    "FLEUR_CANNON": ("OVERHEAT", 0),                  # -2 Sp.Atk self
+    "MISTY_EXPLOSION": ("EXPLODE_EFFECT", 0),         # EXPLOSION
+    "PLAY_ROUGH": ("ATTACK_DOWN_SIDE_EFFECT", 0),     # 10% Atk -1
+    "MOONBLAST": ("SPECIAL_ATTACK_DOWN_HIT", 0),      # 30% Sp.Atk -1
+    "SPIRIT_BREAK": ("SPECIAL_ATTACK_DOWN_HIT", 0),   # 100% Sp.Atk -1
+    "STRANGE_STEAM": ("CONFUSION_SIDE_EFFECT", 0),    # 20% confusion
+    "MAGICAL_TORQUE": ("CONFUSION_SIDE_EFFECT", 0),   # 30% confusion
+    "SPRINGTIDE_STORM": ("ATTACK_DOWN_SIDE_EFFECT", 0),  # 30% Atk -1
 }
+DEFAULT_EFFECT = "NO_ADDITIONAL_EFFECT"
 
 SECONDARY = {
     "PLAY_ROUGH": 10,
@@ -310,10 +319,10 @@ def build_fairy_moves(moves: dict[str, dict]) -> list[dict]:
     selected.sort(key=lambda item: (item[0]["num"], item[1]))
     out = []
     for offset, (move, macro) in enumerate(selected):
-        effect, priority = EFFECTS.get(macro, (0, move["priority"]))
+        effect, priority = EFFECTS.get(macro, (DEFAULT_EFFECT, move["priority"]))
         power = move["basePower"]
         # SUPER_FANG-style effects need a non-zero power to enter the damage path.
-        if effect == 40 and power == 0:
+        if effect == "SUPER_FANG_EFFECT" and power == 0:
             power = 1
         out.append({
             "id": macro,
@@ -334,7 +343,7 @@ def emit_fairy_moves(moves: list[dict], out: Path) -> None:
     for move in moves:
         lines.append(
             '  %s = { name = %r, index = %d, type = "FAIRY", power = %d, '
-            "accuracy = %d, pp = %d, priority = %d, effect = %d, secondaryChance = %d },"
+            "accuracy = %d, pp = %d, priority = %d, effect = \"%s\", secondaryChance = %d },"
             % (move["id"], move["name"], move["index"], move["power"],
                move["accuracy"], move["pp"], move["priority"], move["effect"],
                move["secondaryChance"])

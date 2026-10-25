@@ -54,6 +54,18 @@ for id, value in pairs(categories) do
 end
 assert(categoryCount >= 350, "expected at least 350 move categories, got " .. categoryCount)
 
+-- The engine's Gen 3 effect writer takes a string id, not the numeric
+-- battle_move_effects.h value.  These are the names UnifiedEffects writes
+-- back to their Gen 3 numbers; a typo here makes the engine silently refuse
+-- the whole move at load time, so the list is pinned.
+local EFFECT_NAMES = {
+  NO_ADDITIONAL_EFFECT = true, SWIFT_EFFECT = true, DRAIN_HP_EFFECT = true,
+  ATTACK_DOWN1_EFFECT = true, HEAL_EFFECT = true, SUPER_FANG_EFFECT = true,
+  RECOIL_EFFECT = true, OVERHEAT = true, EXPLODE_EFFECT = true,
+  ATTACK_DOWN_SIDE_EFFECT = true, SPECIAL_ATTACK_DOWN_HIT = true,
+  CONFUSION_SIDE_EFFECT = true,
+}
+
 local moves = load("data/moves_fairy.lua")
 assert(type(moves) == "table", "Fairy moves must be a table")
 local moveCount = 0
@@ -65,6 +77,9 @@ for id, row in pairs(moves) do
   assert(type(row.power) == "number" and type(row.accuracy) == "number"
     and type(row.pp) == "number", "bad Fairy move stats: " .. id)
   assert(row.category == nil, "category must stay in move_categories.lua: " .. id)
+  assert(type(row.effect) == "string", "effect must be a string id: " .. id)
+  assert(EFFECT_NAMES[row.effect], "unknown Gen 3 effect " .. tostring(row.effect) .. " for " .. id)
+  assert(categories[id], "missing move category for " .. id)
   if row.secondaryChance ~= nil then
     assert(type(row.secondaryChance) == "number"
       and row.secondaryChance >= 0 and row.secondaryChance <= 100,
@@ -94,5 +109,19 @@ end
 assert(learnCount >= 10, "expected at least 10 species learnsets, got " .. learnCount)
 assert(learnsets.CLEFAIRY and learnsets.GARDEVOIR and learnsets.MARILL,
   "expected Clefairy, Gardevoir and Marill learnsets")
+
+-- Every learnset row has to name a move the mod actually ships (a new Fairy
+-- move, or one of the native moves it re-types).
+local known = { CHARM = true, MOONLIGHT = true, SWEET_KISS = true }
+for id in pairs(moves) do known[id] = true end
+for species, rows in pairs(learnsets) do
+  local lastLevel = 0
+  for _, row in ipairs(rows) do
+    assert(known[row.move], "learnset for " .. species .. " names unknown move " .. tostring(row.move))
+    assert(row.level >= 1 and row.level <= 100, "bad learnset level for " .. species)
+    assert(row.level >= lastLevel, "learnset rows must be sorted for " .. species)
+    lastLevel = row.level
+  end
+end
 
 print("data_test: ok")

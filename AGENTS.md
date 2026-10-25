@@ -75,6 +75,14 @@ Planned, not implemented:
     Tera Blast. Draining Kiss uses the Gen 3 50% drain effect. Secondary
     effects use Gen 3 effect IDs; Alluring Voice's conditional and Sparkly
     Swirl's team-heal special cases are not modeled.
+14. `data/moves_fairy.lua` stores effect **names** (`"ATTACK_DOWN_SIDE_EFFECT"`),
+    never numbers. Engine-side tests pin the round-trip; a name the engine
+    cannot map is refused silently and the move disappears.
+15. Register the FAIRY type and the full chart in `mod.content.type_chart`
+    before registering moves. The engine's move writer validates `type`
+    against that registry, so a move with `type = "FAIRY"` is rejected when
+    only the runtime overlay knows about Fairy. Keep the overlay for the
+    instant `GEN 9` / `VANILLA` switch.
 
 ## Public URLs
 

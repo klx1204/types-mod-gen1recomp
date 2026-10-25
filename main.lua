@@ -374,6 +374,45 @@ return function(mod)
     return value
   end
 
+  -- The engine validates a move's type against the type_chart registry while
+  -- the move is written, so FAIRY has to exist there before the moves below
+  -- are registered.  Registering the chart also teaches the engine's custom
+  -- type table that index 18 is FAIRY, which the move writer needs.
+  if data.types and data.types.complete then
+    local ok, err = pcall(function()
+      mod.content.type_chart:register("FAIRY", {
+        index = data.types.fairyIndex or 18,
+        name = "FAIRY",
+        category = "special",
+      })
+    end)
+    if not ok then
+      mod.log:warn("could not register the FAIRY type: %s", tostring(err))
+    end
+    local failed = 0
+    for _, row in ipairs(data.types.matchups or {}) do
+      local a, d = row.attacker, row.defender
+      if a and d then
+        local okRow, rowErr = pcall(function()
+          -- override, not register: the engine seeds the native 17x17 chart
+          -- and Gen 9 changes several of those native rows.
+          mod.content.type_chart:override(a .. ">" .. d, {
+            multiplier = row.multiplier,
+          })
+        end)
+        if not okRow then
+          failed = failed + 1
+          if failed <= 3 then
+            mod.log:warn("could not register %s>%s: %s", a, d, tostring(rowErr))
+          end
+        end
+      end
+    end
+    if failed > 0 then
+      mod.log:warn("%d Gen 9 matchups were rejected", failed)
+    end
+  end
+
   -- Entry-time registrations: content registries freeze after this chunk.
   for id, record in pairs(data.moves_fairy or {}) do
     local ok, err = pcall(function()
