@@ -71,7 +71,9 @@ Planned, not implemented:
     field is contest data, not physical/special.
 13. Skipped Fairy moves with no Gen 3 engine support: Misty Terrain, Fairy
     Lock, Flower Shield, Aromatic Mist, Crafty Shield, Geomancy, Decorate,
-    Tera Blast. Draining Kiss uses the Gen 3 50% drain effect.
+    Tera Blast. Draining Kiss uses the Gen 3 50% drain effect. Secondary
+    effects use Gen 3 effect IDs; Alluring Voice's conditional and Sparkly
+    Swirl's team-heal special cases are not modeled.
 
 ## Public URLs
 

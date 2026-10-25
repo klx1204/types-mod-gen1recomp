@@ -65,6 +65,11 @@ for id, row in pairs(moves) do
   assert(type(row.power) == "number" and type(row.accuracy) == "number"
     and type(row.pp) == "number", "bad Fairy move stats: " .. id)
   assert(row.category == nil, "category must stay in move_categories.lua: " .. id)
+  if row.secondaryChance ~= nil then
+    assert(type(row.secondaryChance) == "number"
+      and row.secondaryChance >= 0 and row.secondaryChance <= 100,
+      "bad secondaryChance: " .. id)
+  end
   moveCount = moveCount + 1
 end
 assert(moveCount >= 15, "expected at least 15 Fairy moves, got " .. moveCount)

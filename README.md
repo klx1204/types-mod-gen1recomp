@@ -70,6 +70,11 @@ Skipped because Gen 3 has no engine support: Misty Terrain, Fairy Lock,
 Flower Shield, Aromatic Mist, Crafty Shield, Geomancy, Decorate, Tera Blast.
 Draining Kiss uses the Gen 3 50% drain effect (not Gen 6's 75%).
 
+Mapped secondary effects: Play Rough 10% Atk -1, Moonblast 30% SpA -1,
+Spirit Break 100% SpA -1, Strange Steam 20% confusion, Magical Torque 30%
+confusion, Springtide Storm 30% Atk -1. Alluring Voice's conditional and
+Sparkly Swirl's team-heal special cases are not modeled.
+
 `data.pokemon` is not rewritten; the runtime tables (`Pokemon._types`,
 `Pokemon._learnsets`, `Moves._rom`, `Pokemon._battleMoves`) are the source of
 truth while `GEN 9` is active.
