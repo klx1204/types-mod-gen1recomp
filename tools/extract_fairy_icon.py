@@ -20,7 +20,9 @@ import os
 import sys
 from pathlib import Path
 
-CELL_W, CELL_H = 32, 16
+CELL_W, ICON_H = 32, 12
+SLOT_H = 16
+PAD_TOP = 2
 COLUMNS = 4
 # The sheet groups NORMAL/FIRE/WATER/GRASS first; FAIRY is the lone badge on
 # the last row.  Verified against Type_Icons.bmp: row 8, column 0.
@@ -56,13 +58,17 @@ def main() -> None:
     if image.size != (128, 144):
         fail(f"expected a 128x144 sheet, got {image.size[0]}x{image.size[1]}")
 
-    left, top = FAIRY_COL * CELL_W, FAIRY_ROW * CELL_H
-    icon = image.crop((left, top, left + CELL_W, top + CELL_H))
-
+    # The sheet's cells are 32x16 but the badge art occupies the top 12 rows;
+    # the bottom four rows are the sheet background.  Emerald's own badges sit
+    # at y=2..12 in a 32x16 slot, so crop to 32x12 and pad 2px top and bottom.
+    left, top = FAIRY_COL * CELL_W, FAIRY_ROW * 16
+    icon = image.crop((left, top, left + CELL_W, top + ICON_H))
+    canvas = Image.new("RGBA", (CELL_W, SLOT_H), (0, 0, 0, 0))
+    canvas.paste(icon, (0, PAD_TOP))
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    icon.save(out)
-    print(f"wrote {out} ({CELL_W}x{CELL_H}) from row {FAIRY_ROW}, column {FAIRY_COL}")
+    canvas.save(out)
+    print(f"wrote {out} ({CELL_W}x{SLOT_H}) from row {FAIRY_ROW}, column {FAIRY_COL}")
 
 
 if __name__ == "__main__":
