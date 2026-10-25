@@ -49,8 +49,9 @@ Planned, not implemented:
    - official `bryanthaboi/gen1recomp` → **compat mode**: types, species,
      moves, learnsets and enhancements work; per-move physical/special is
      unavailable and Play Rough falls back to the type-based category.
-   - `klx1204/gen1recomp-ps-split` → **full mode**: per-move physical/special
-     works and the battle move menu can show it.
+   - `klx1204/gen1recomp-ps-split` → **full mode** when the fork exposes
+     `Types.MOVE_CATEGORY`: per-move physical/special works and the battle move
+     menu shows it. Older forks without the marker stay in compat mode.
 5. Do not add Fairy TMs or HMs. The Gen 3 TM/HM list stays untouched.
 6. Do not add new abilities.
 7. `data/moves_fairy.lua` must never contain `category`. The official engine's

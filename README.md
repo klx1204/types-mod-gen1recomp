@@ -32,7 +32,7 @@ day/night, followers, or 3DS-specific features.
 | Engine | Gen 9 types/species/moves | Per-move physical/special | Battle menu category/effectiveness |
 | --- | --- | --- | --- |
 | Official gen1recomp | Yes | No (type-based fallback) | No |
-| `gen1recomp-ps-split` | Yes | Yes (after the fork call sites are wired) | Yes (same condition) |
+| `gen1recomp-ps-split` | Yes | Yes (when the fork sets `Types.MOVE_CATEGORY`) | Yes (same condition) |
 
 The mod detects the engine capability at load time. On the official engine it
 runs in **compat mode** and logs a warning: Play Rough is treated as a special
