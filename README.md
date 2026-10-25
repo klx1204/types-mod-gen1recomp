@@ -125,7 +125,23 @@ luajit tests/data_test.lua
 luajit tests/main_smoke_test.lua
 luajit tests/apply_test.lua
 ENGINE_DIR=/path/to/gen1recomp luajit tests/engine_smoke_test.lua
+ENGINE_DIR=/path/to/gen1recomp luajit tests/engine_effect_test.lua
 ```
+
+### Live smoke test
+
+`tests/live_smoke.lua` is an in-engine driver for a real ROM import. It is
+not part of CI because it needs an imported cache:
+
+```sh
+POKEPORT_IDENTITY=<identity> POKEPORT_VERSION=firered \
+  POKEPORT_DRIVER=tests/live_smoke.lua love .
+```
+
+Run it once per game (`firered`, `leafgreen`, `emerald`, `ruby`,
+`sapphire`) from the engine checkout with this repository under `mods/`. It
+covers the `BATTLE DATA` switch, the Gen 9 chart, the 18 Fairy species, the
+18 Fairy moves, per-move physical/special, and the VANILLA restore.
 
 ### CI
 

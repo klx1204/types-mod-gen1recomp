@@ -176,6 +176,20 @@ return function(mod)
     return flat
   end
 
+  -- VANILLA still has the 18 custom moves in the ROM table, so a saved
+  -- Pokémon can reference type 18.  Keep the name resolvable; the chart and
+  -- the physical/special flags stay native.
+  local function keepFairyName()
+    if type(Types.NATIVE_TABLE) ~= "table" then return end
+    pcall(function()
+      Types.useOverlay({
+        table = Types.NATIVE_TABLE,
+        physical = Types.NATIVE_PHYSICAL,
+        names = { [18] = "FAIRY" },
+      })
+    end)
+  end
+
   local function applySpeciesTypes(enable, Pokemon)
     if not Pokemon then return end
     if not enable then
@@ -327,6 +341,7 @@ return function(mod)
       applyLearnsets(false, Pokemon, Moves)
       applyMoveTypes(false, Moves, Pokemon, Data)
       applyCategories(false, Moves, Pokemon, Data)
+      keepFairyName()
     end
 
     current = mode
@@ -490,12 +505,20 @@ return function(mod)
     return ok, resultKind, text
   end)
 
-  -- Apply the saved mode once the engine has a save and a dataset.
+  -- Apply the saved mode once the engine has a save and a dataset.  This
+  -- runs for VANILLA too: registering FAIRY in type_chart makes the loader
+  -- install its Gen 9 overlay before the game boots, so a VANILLA save has
+  -- to clear that overlay explicitly instead of assuming the engine is
+  -- still pristine.
   local function restore()
-    if current ~= "GEN9" then return end
-    local ok, why = apply("GEN9", true)
+    local ok, why
+    if current == "GEN9" then
+      ok, why = apply("GEN9", true)
+    else
+      ok, why = apply("VANILLA", true)
+    end
     if not ok then
-      mod.log:warn("could not apply Gen 9 data: %s", tostring(why))
+      mod.log:warn("could not apply %s data: %s", current, tostring(why))
     end
   end
 
