@@ -104,8 +104,10 @@ Never assume `MOVE_CATEGORY` exists. Strip or skip category data in compat mode.
 ## Commands
 
 ```bash
-# data sanity
+# data and entry-point sanity
 luajit tests/data_test.lua
+luajit tests/main_smoke_test.lua
+luajit tests/apply_test.lua
 
 # engine smoke test (optional; skips when ENGINE_DIR is unset)
 ENGINE_DIR=/path/to/gen1recomp luajit tests/engine_smoke_test.lua

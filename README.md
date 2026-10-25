@@ -93,6 +93,8 @@ absolute path. `SHOWDOWN_DIR` and `CFRU_DIR` are accepted as fallbacks.
 
 ```bash
 luajit tests/data_test.lua
+luajit tests/main_smoke_test.lua
+luajit tests/apply_test.lua
 ENGINE_DIR=/path/to/gen1recomp luajit tests/engine_smoke_test.lua
 ```
 
