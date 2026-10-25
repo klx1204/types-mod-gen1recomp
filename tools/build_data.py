@@ -28,6 +28,7 @@ LOCAL_PATH = re.compile(_USER_PREFIX + r"[^/]+/Downloads|C:\\\\Users\\\\|/home/[
 SKIP = {
     (ROOT / "tools" / "build_data.py").resolve(),
     (ROOT / ".github" / "workflows" / "ci.yml").resolve(),
+    (ROOT / "docs" / "ci.yml.pending").resolve(),
 }
 
 

@@ -93,6 +93,21 @@ luajit tests/data_test.lua
 ENGINE_DIR=/path/to/gen1recomp luajit tests/engine_smoke_test.lua
 ```
 
+### CI
+
+The GitHub Actions workflow is staged at `docs/ci.yml.pending`. It is not under
+`.github/workflows/` yet because the pushing token needs the `workflow` scope
+(or the fine-grained **Workflows: Read and write** permission). Once that is
+granted, move it into place:
+
+```bash
+mkdir -p .github/workflows
+mv docs/ci.yml.pending .github/workflows/ci.yml
+git add .github/workflows/ci.yml
+git commit -m "Enable CI workflow"
+git push
+```
+
 See `AGENTS.md` for the hard rules and the two-repository architecture.
 
 ## License
