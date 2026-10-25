@@ -13,11 +13,11 @@ games (FireRed, LeafGreen, Emerald) without replacing the engine.
   - Sweet Kiss: Normal → Fairy
   - Curse: ??? → Ghost
 - Provides per-move physical/special categories when the engine supports them.
-- Adds a small set of Gen 9 Fairy moves and level-up learnset patches.
+- Scaffolds a small set of Gen 9 Fairy moves and level-up learnset patches (data generation pending).
 - Optional enhancements implemented through public hooks:
   - EXP for catching
   - Party EXP Share
-  - Trade evolution at level 40
+  - Trade evolution at level 40 (planned)
   - HMs without knowing the move
   - Infinite TMs
   - IV/EV viewer (planned)
