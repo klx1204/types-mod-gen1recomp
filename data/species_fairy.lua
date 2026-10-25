@@ -1,6 +1,7 @@
 -- Gen 9 types for the 18 Gen 3 species that gained Fairy.
 -- Keys are gen1recomp species ids (the constants without the SPECIES_ prefix).
--- The other 368 Gen 3 species keep their Gen 3 types.
+-- Shared by FireRed, LeafGreen, Emerald, Ruby and Sapphire.
+-- The other 368 Gen 3 species keep their Gen 3 types, identical to Gen 9.
 return {
   CLEFFA = { "FAIRY" },
   CLEFAIRY = { "FAIRY" },

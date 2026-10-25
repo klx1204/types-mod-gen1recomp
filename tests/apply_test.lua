@@ -22,8 +22,8 @@ for name in pairs(species) do
   nextId = nextId + 1
 end
 
-local moveNames = { "CHARM", "MOONLIGHT", "SWEET_KISS", "CURSE" }
-local moveIds = { CHARM = 204, MOONLIGHT = 236, SWEET_KISS = 186, CURSE = 174 }
+local moveNames = { "CHARM", "MOONLIGHT", "SWEET_KISS", "CURSE", "MOONBLAST" }
+local moveIds = { CHARM = 204, MOONLIGHT = 236, SWEET_KISS = 186, CURSE = 174, MOONBLAST = 362 }
 local moveIdByName = {}
 local nameById = {}
 for _, name in ipairs(moveNames) do
@@ -120,6 +120,12 @@ assert(link[204].type == 18, "Moves._linkRows Charm type not applied")
 assert(battle[204].type == 18, "Pokemon._battleMoves Charm type not applied")
 assert(dataMoves.CHARM.type == "FAIRY", "data.moves Charm type not applied")
 assert(rom[174].type == 7, "Curse must become Ghost")
+local clefairyLearn = Pokemon._learnsets[speciesIds.CLEFAIRY] or {}
+local hasMoonblast = false
+for _, row in ipairs(clefairyLearn) do
+  if row.move == 362 and row.level == 44 then hasMoonblast = true end
+end
+assert(hasMoonblast, "Clefairy Moonblast was not resolved to a numeric id")
 
 assert(battleRow.step({}) == true, "GEN9 -> VANILLA should restore")
 assert(cleared == true, "Types.clearOverlay not called")
@@ -128,6 +134,8 @@ assert(link[204].type == 0, "Charm link type not restored")
 assert(battle[204].type == 0, "Charm battle type not restored")
 assert(dataMoves.CHARM.type == "NORMAL", "Charm data type not restored")
 assert(rom[174].type == 9, "Curse type not restored")
+assert(#(Pokemon._learnsets[speciesIds.CLEFAIRY] or {}) == 0,
+  "Clefairy learnset not restored")
 
 package.loaded["src.core.game3.battle.init"] = { _active = true }
 assert(battleRow.step({}) == false, "battle must refuse the switch")

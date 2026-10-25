@@ -1,7 +1,7 @@
 # Gen 9 Types & Battle Data for gen1recomp
 
 A content mod for **gen1recomp** that brings a Gen 9 data layer to the Gen 3
-games (FireRed, LeafGreen, Emerald) without replacing the engine.
+games (FireRed, LeafGreen, Emerald, Ruby, Sapphire) without replacing the engine.
 
 ## What it does
 
@@ -12,8 +12,10 @@ games (FireRed, LeafGreen, Emerald) without replacing the engine.
   - Moonlight: Normal → Fairy
   - Sweet Kiss: Normal → Fairy
   - Curse: ??? → Ghost
-- Provides per-move physical/special categories when the engine supports them.
-- Scaffolds a small set of Gen 9 Fairy moves and level-up learnset patches (data generation pending).
+- Provides per-move physical/special categories when the engine supports them
+  (all 354 Gen 3 moves plus the new Fairy moves).
+- Adds 18 Gen 9 Fairy moves with Gen 3-safe effects.
+- Adds Gen 9 level-up Fairy moves to 40 Gen 3 species.
 - Optional enhancements implemented through public hooks:
   - EXP for catching
   - Party EXP Share
@@ -30,7 +32,7 @@ day/night, followers, or 3DS-specific features.
 | Engine | Gen 9 types/species/moves | Per-move physical/special | Battle menu category/effectiveness |
 | --- | --- | --- | --- |
 | Official gen1recomp | Yes | No (type-based fallback) | No |
-| `gen1recomp-ps-split` | Yes | Yes | Yes |
+| `gen1recomp-ps-split` | Yes | Yes (after the fork call sites are wired) | Yes (same condition) |
 
 The mod detects the engine capability at load time. On the official engine it
 runs in **compat mode** and logs a warning: Play Rough is treated as a special
@@ -52,22 +54,25 @@ top-level OPTIONS list.
 The data mode can only be changed outside battle. In battle the option refuses
 the change and keeps the current mode.
 
-## Current scaffold state
+## Current data state
 
-The 18-type Gen 9 chart (`data/types.lua`), the 18 Fairy species
-(`data/species_fairy.lua`) and the four existing move type changes
-(`data/move_types_changed.lua`) are present. The chart was generated from
-Showdown and contains all 324 matchups.
+Generated from Showdown and committed:
 
-Still scaffolded and empty:
+- `data/types.lua` — 18-type chart, 324 matchups;
+- `data/species_fairy.lua` — the 18 Gen 3 species that gained Fairy; every
+  other Gen 3 species keeps its Gen 3 types, which are identical to Gen 9;
+- `data/move_types_changed.lua` — Charm, Moonlight, Sweet Kiss, Curse;
+- `data/move_categories.lua` — 372 categories (354 Gen 3 moves + 18 Fairy moves);
+- `data/moves_fairy.lua` — 18 Fairy moves;
+- `data/learnsets_fairy.lua` — 40 Gen 3 species with Gen 9 level-up Fairy moves.
 
-- `data/move_categories.lua` — per-move physical/special categories
-- `data/moves_fairy.lua` — new Fairy moves
-- `data/learnsets_fairy.lua` — Gen 9 level-up learnsets
+Skipped because Gen 3 has no engine support: Misty Terrain, Fairy Lock,
+Flower Shield, Aromatic Mist, Crafty Shield, Geomancy, Decorate, Tera Blast.
+Draining Kiss uses the Gen 3 50% drain effect (not Gen 6's 75%).
 
-Until those are generated, `BATTLE DATA → GEN 9` applies the type chart, the 18
-species types and the four move type changes. It does not add Play Rough or
-Moonblast yet.
+`data.pokemon` is not rewritten; the runtime tables (`Pokemon._types`,
+`Pokemon._learnsets`, `Moves._rom`, `Pokemon._battleMoves`) are the source of
+truth while `GEN 9` is active.
 
 ## Generating data
 

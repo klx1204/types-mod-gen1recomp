@@ -6,8 +6,16 @@
   "entry": "main.lua",
   "profile": "content",
   "category": "BATTLE",
-  "games": ["firered", "leafgreen", "emerald"],
-  "permissions": ["engine_internals"],
+  "games": [
+    "firered",
+    "leafgreen",
+    "emerald",
+    "ruby",
+    "sapphire"
+  ],
+  "permissions": [
+    "engine_internals"
+  ],
   "affects_link": true,
   "game_version": ">=0.0.0-dev <2.0.0",
   "description": "Gen 9 type chart, Fairy species types, per-move physical/special, and optional Gen 3 enhancements. Supports both official gen1recomp and gen1recomp-ps-split."

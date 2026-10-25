@@ -2,13 +2,13 @@
 
 ## What this repo is
 
-A gen1recomp **content mod** for the Gen 3 games (FireRed, LeafGreen, Emerald):
+A gen1recomp **content mod** for the Gen 3 games (FireRed, LeafGreen, Emerald, Ruby, Sapphire):
 
 - an 18-type Gen 9 chart (adds Fairy and the Gen 6+ Steel resistances);
 - Gen 9 types for the 18 Gen 3 species that gained Fairy;
 - four existing move type changes (Charm, Moonlight, Sweet Kiss, Curse);
-- optional per-move physical/special categories;
-- planned: a small set of Gen 9 Fairy moves and level-up learnsets;
+- optional per-move physical/special categories for all 354 Gen 3 moves;
+- 18 Gen 9 Fairy moves and Gen 9 level-up additions for 40 Gen 3 species;
 - optional quality-of-life enhancements; the implemented ones use only public
   mod hooks, and the rest are marked planned.
 
@@ -22,14 +22,12 @@ Present today:
 - `data/types.lua` — complete 18-type Gen 9 chart, 324 matchups;
 - `data/species_fairy.lua` — the 18 Fairy species;
 - `data/move_types_changed.lua` — Charm, Moonlight, Sweet Kiss, Curse;
+- `data/move_categories.lua` — 372 categories;
+- `data/moves_fairy.lua` — 18 Fairy moves;
+- `data/learnsets_fairy.lua` — 40 Gen 3 species with Gen 9 level-up Fairy moves;
 - `main.lua` — GEN9/VANILLA switch, non-battle guard, four working hooks;
-- `tests/data_test.lua`, `tests/main_smoke_test.lua`, engine smoke test.
-
-Scaffolded, empty until generated:
-
-- `data/move_categories.lua`;
-- `data/moves_fairy.lua`;
-- `data/learnsets_fairy.lua`.
+- `tests/data_test.lua`, `tests/main_smoke_test.lua`, `tests/apply_test.lua`,
+  engine smoke test.
 
 Planned, not implemented:
 
@@ -67,6 +65,13 @@ Planned, not implemented:
 11. This mod owns the Gen 9 type overlay and the 18 species while `GEN9` is
     active. Do not combine it with another mod that replaces `Types` or
     `Pokemon._types`; document the conflict instead.
+12. `data.pokemon` is not rewritten. The runtime tables (`Pokemon._types`,
+    `Pokemon._learnsets`, `Moves._rom`, `Pokemon._battleMoves`) are the source
+    of truth while `GEN9` is active. Do not write `data.moves.category`: that
+    field is contest data, not physical/special.
+13. Skipped Fairy moves with no Gen 3 engine support: Misty Terrain, Fairy
+    Lock, Flower Shield, Aromatic Mist, Crafty Shield, Geomancy, Decorate,
+    Tera Blast. Draining Kiss uses the Gen 3 50% drain effect.
 
 ## Public URLs
 

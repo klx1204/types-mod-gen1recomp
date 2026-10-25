@@ -68,7 +68,8 @@ local function moveRows(Moves, Pokemon, Data, id, name)
   local linked = Moves._linkRows and Moves._linkRows[id]
   local battle = Pokemon and Pokemon._battleMoves and Pokemon._battleMoves[id]
   local dataRow = Data and Data.moves
-    and (Data.moves[key] or Data.moves[name] or Data.moves[id])
+    and (Data.moves[key] or Data.moves["MOVE_" .. tostring(key)]
+      or Data.moves[name] or Data.moves[id])
   return rom, linked, battle, dataRow
 end
 
@@ -195,7 +196,7 @@ return function(mod)
     end
   end
 
-  local function applyLearnsets(enable, Pokemon)
+  local function applyLearnsets(enable, Pokemon, Moves)
     if not Pokemon then return end
     if not enable then
       for id, rows in pairs(baseline.learnsets) do
@@ -212,10 +213,16 @@ return function(mod)
           seen[tostring(row.level) .. ":" .. tostring(row.move)] = true
         end
         for _, row in ipairs(rows) do
-          local key = tostring(row.level) .. ":" .. tostring(row.move)
-          if not seen[key] then
-            merged[#merged + 1] = { level = row.level, move = row.move }
-            seen[key] = true
+          local moveId = row.move
+          if Moves and Moves.numForName and type(moveId) == "string" then
+            moveId = Moves.numForName(moveId)
+          end
+          if moveId then
+            local key = tostring(row.level) .. ":" .. tostring(moveId)
+            if not seen[key] then
+              merged[#merged + 1] = { level = row.level, move = moveId }
+              seen[key] = true
+            end
           end
         end
         table.sort(merged, function(a, b)
@@ -311,13 +318,13 @@ return function(mod)
         names = data.types.names or {},
       })
       applySpeciesTypes(true, Pokemon)
-      applyLearnsets(true, Pokemon)
+      applyLearnsets(true, Pokemon, Moves)
       applyMoveTypes(true, Moves, Pokemon, Data)
       applyCategories(true, Moves, Pokemon, Data)
     else
       Types.clearOverlay()
       applySpeciesTypes(false, Pokemon)
-      applyLearnsets(false, Pokemon)
+      applyLearnsets(false, Pokemon, Moves)
       applyMoveTypes(false, Moves, Pokemon, Data)
       applyCategories(false, Moves, Pokemon, Data)
     end
