@@ -43,6 +43,4 @@ jobs:
       - name: Link the mod into the engine
         run: ln -s "$GITHUB_WORKSPACE" engine/mods/types_mod_gen1recomp
       - name: Engine smoke test
-        run: |
-          cd engine
-          luajit tests/run_tests.lua
+        run: ENGINE_DIR="$GITHUB_WORKSPACE/engine" luajit tests/engine_smoke_test.lua
