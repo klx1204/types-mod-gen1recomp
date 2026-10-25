@@ -1,0 +1,32 @@
+-- Sharing metadata for the mod manager. The loader never reads this file.
+return {
+  summary = "Gen 9 type chart, Fairy species types, 18 Fairy moves, 372 move categories and Gen 9 Fairy learnsets for the five Gen 3 games.",
+  author = "klx1204",
+  contact = "https://github.com/klx1204/types-mod-gen1recomp",
+  tags = { "gen3", "gen9", "fairy", "battle", "data-only" },
+  differences = {
+    changed = {
+      "Cleffa/Clefairy/Clefable, Igglybuff/Jigglypuff/Wigglytuff, Togepi/Togetic, Azurill/Marill/Azumarill, Snubbull/Granbull, Ralts/Kirlia/Gardevoir, Mawile and Mr. Mime use their Gen 9 types",
+      "Charm, Moonlight and Sweet Kiss are Fairy; Curse is Ghost",
+      "per-move physical/special when gen1recomp-ps-split is installed",
+    },
+    added = {
+      "18 Gen 9 Fairy moves",
+      "Gen 9 level-up Fairy moves for 40 Gen 3 species",
+      "372 move categories (354 Gen 3 moves + 18 Fairy moves)",
+      "exp for catching, party EXP Share, HMs without the move, infinite TMs",
+    },
+    known = {
+      "official gen1recomp: Play Rough falls back to Fairy's type category (special)",
+      "Misty Terrain, Fairy Lock, Flower Shield, Aromatic Mist, Crafty Shield, Geomancy, Decorate and Tera Blast are skipped",
+      "Draining Kiss uses the Gen 3 50% drain effect",
+      "custom moves are removed by vanilla gen1recomp if the mod is disabled",
+      "Gen 9 learnsets are species-level; per-version tutor and TM differences are not modeled",
+    },
+  },
+  credits = {
+    { who = "Pokémon Showdown", for_ = "type chart, move and learnset data (MIT)" },
+    { who = "pret/pokefirered and pokeemerald", for_ = "engine behavior reference" },
+  },
+  compat = { engine = ">=0.0.0-dev <2.0.0", modApi = 3 },
+}

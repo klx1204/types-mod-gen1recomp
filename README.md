@@ -54,6 +54,16 @@ top-level OPTIONS list.
 The data mode can only be changed outside battle. In battle the option refuses
 the change and keeps the current mode.
 
+## Save and link notes
+
+- `GEN 9` / `VANILLA` is stored in the mod's save bucket.
+- Turning the mod off lets vanilla gen1recomp load the save, but it removes
+  custom moves from Pokémon that know them (and falls back to TACKLE when all
+  four slots are custom).
+- `affects_link` is true: both peers need the same mod and data mode.
+- The species-level Gen 9 learnsets apply to FireRed, LeafGreen, Emerald, Ruby
+  and Sapphire. Per-version tutor and TM differences are not modeled.
+
 ## Current data state
 
 Generated from Showdown and committed:
