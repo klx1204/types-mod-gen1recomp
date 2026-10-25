@@ -8,9 +8,9 @@ A gen1recomp **content mod** for the Gen 3 games (FireRed, LeafGreen, Emerald):
 - Gen 9 types for the 18 Gen 3 species that gained Fairy;
 - four existing move type changes (Charm, Moonlight, Sweet Kiss, Curse);
 - optional per-move physical/special categories;
-- a small set of Gen 9 Fairy moves and level-up learnsets;
-- optional quality-of-life enhancements that are implemented entirely through
-  public mod hooks.
+- planned: a small set of Gen 9 Fairy moves and level-up learnsets;
+- optional quality-of-life enhancements; the implemented ones use only public
+  mod hooks, and the rest are marked planned.
 
 This repository contains **no engine source**. It runs on top of gen1recomp via
 the mod API.
