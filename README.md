@@ -80,9 +80,10 @@ Skipped because Gen 3 has no engine support: Misty Terrain, Fairy Lock,
 Flower Shield, Aromatic Mist, Crafty Shield, Geomancy, Decorate, Tera Blast.
 Draining Kiss uses the Gen 3 50% drain effect (not Gen 6's 75%).
 
-On the fork, the summary screen prefixes battle moves with `P ` (physical)
-or `S ` (special); status moves and contest pages are unchanged. The battle
-move menu shows the full category and effectiveness (`PHY x2`, `SPE 0.5x`).
+On the fork, battle move menus tint the move name by matchup (green super
+effective, yellow resisted, grey immune, default for 1x) and draw a 2x8 bar
+beside the type: red physical, blue special, grey status. The summary screen
+uses the same bar; contest pages keep the native contest categories.
 
 Mapped secondary effects: Play Rough 10% Atk -1, Moonblast 30% SpA -1,
 Spirit Break 100% SpA -1, Strange Steam 20% confusion, Magical Torque 30%

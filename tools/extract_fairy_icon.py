@@ -23,6 +23,9 @@ from pathlib import Path
 CELL_W, ICON_H = 32, 12
 SLOT_H = 16
 PAD_TOP = 2
+HIGHLIGHT_ROW, SHADOW_ROW = 1, 14
+HIGHLIGHT = (255, 224, 255, 255)
+SHADOW = (174, 108, 174, 255)
 COLUMNS = 4
 # The sheet groups NORMAL/FIRE/WATER/GRASS first; FAIRY is the lone badge on
 # the last row.  Verified against Type_Icons.bmp: row 8, column 0.
@@ -50,7 +53,7 @@ def main() -> None:
         fail(f"missing {sheet}")
 
     try:
-        from PIL import Image
+        from PIL import Image, ImageDraw
     except ImportError:
         fail("Pillow is required: python3 -m pip install pillow")
 
@@ -59,11 +62,15 @@ def main() -> None:
         fail(f"expected a 128x144 sheet, got {image.size[0]}x{image.size[1]}")
 
     # The sheet's cells are 32x16 but the badge art occupies the top 12 rows;
-    # the bottom four rows are the sheet background.  Emerald's own badges sit
-    # at y=2..12 in a 32x16 slot, so crop to 32x12 and pad 2px top and bottom.
+    # the bottom four rows are the sheet background.  Emerald's own badges are
+    # a 1px highlight row, a 12px body and a 1px shadow row, so rebuild that
+    # shape instead of pasting the flat CFRU block.
     left, top = FAIRY_COL * CELL_W, FAIRY_ROW * 16
     icon = image.crop((left, top, left + CELL_W, top + ICON_H))
     canvas = Image.new("RGBA", (CELL_W, SLOT_H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle((0, HIGHLIGHT_ROW, CELL_W - 1, HIGHLIGHT_ROW), fill=HIGHLIGHT)
+    draw.rectangle((0, SHADOW_ROW, CELL_W - 1, SHADOW_ROW), fill=SHADOW)
     canvas.paste(icon, (0, PAD_TOP))
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
