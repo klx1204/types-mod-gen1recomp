@@ -1,5 +1,7 @@
 # Gen 9 Types & Battle Data for gen1recomp
 
+[中文](README.zh-CN.md)
+
 A content mod for **gen1recomp** that brings a Gen 9 data layer to the Gen 3
 games (FireRed, LeafGreen, Emerald, Ruby, Sapphire) without replacing the engine.
 
