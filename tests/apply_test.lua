@@ -123,7 +123,7 @@ assert(rom[174].type == 7, "Curse must become Ghost")
 local clefairyLearn = Pokemon._learnsets[speciesIds.CLEFAIRY] or {}
 local hasMoonblast = false
 for _, row in ipairs(clefairyLearn) do
-  if row.move == 362 and row.level == 44 then hasMoonblast = true end
+  if row.move == moveIds.MOONBLAST and row.level == 46 then hasMoonblast = true end
 end
 assert(hasMoonblast, "Clefairy Moonblast was not resolved to a numeric id")
 

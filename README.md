@@ -74,7 +74,10 @@ Generated from Showdown and committed:
 - `data/move_types_changed.lua` — Charm, Moonlight, Sweet Kiss, Curse;
 - `data/move_categories.lua` — 372 categories (354 Gen 3 moves + 18 Fairy moves);
 - `data/moves_fairy.lua` — 18 Fairy moves;
-- `data/learnsets_fairy.lua` — 40 Gen 3 species with Gen 9 level-up Fairy moves.
+- `data/learnsets_fairy.lua` — 43 Gen 3 species with CFRU's Gen 6 level-up
+  Fairy moves: Disarming Voice, Draining Kiss, Play Rough, Fairy Wind,
+  Moonblast, Baby-Doll Eyes. Charm / Moonlight / Sweet Kiss keep their native
+  Gen 3 levels; `main.lua` merges this table into the ROM learnset.
 
 Skipped because Gen 3 has no engine support: Misty Terrain, Fairy Lock,
 Flower Shield, Aromatic Mist, Crafty Shield, Geomancy, Decorate, Tera Blast.
@@ -108,6 +111,18 @@ truth while `GEN 9` is active.
 ## Generating data
 
 The repository commits generated Lua so players do not need Node or Showdown.
+
+The learnset table comes from CFRU's `src/Tables/level_up_learnsets.c`:
+
+```sh
+python3 tools/export_cfru_learnsets.py --cfru /path/to/Complete-Fire-Red-Upgrade
+```
+
+CFRU's Gen 3 species only list six of the 18 new Fairy moves at level-up.
+Dazzling Gleam, Fleur Cannon, Light of Ruin, Floral Healing, Nature's
+Madness, Sparkly Swirl, Spirit Break, Strange Steam, Misty Explosion,
+Springtide Storm, Magical Torque and Alluring Voice have no level-up source
+on Gen 3 species: they are TM/tutor moves, or belong to later generations.
 
 ```bash
 python3 tools/export_showdown.py --showdown /path/to/pokemon-showdown

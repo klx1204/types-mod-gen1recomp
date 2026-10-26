@@ -92,6 +92,11 @@ Planned, not implemented:
     exposes it. The summary screen indexes the ROM icon sheet by type id and
     frame 18 is COOL, so the icon has to come from `assets/type_icons` or the
     screen falls back to the type name.
+18. Generate `data/learnsets_fairy.lua` from CFRU, not from Showdown's
+    level-up table. CFRU carries the official Gen 6 levels for the new Fairy
+    moves. Only the 18 new moves are written; Charm / Moonlight / Sweet Kiss
+    stay at their Gen 3 levels because `main.lua` merges the table into the
+    ROM learnset.
 
 ## Public URLs
 
