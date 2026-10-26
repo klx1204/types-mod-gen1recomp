@@ -81,9 +81,11 @@ Flower Shield, Aromatic Mist, Crafty Shield, Geomancy, Decorate, Tera Blast.
 Draining Kiss uses the Gen 3 50% drain effect (not Gen 6's 75%).
 
 On the fork, battle move menus tint the move name by matchup (green super
-effective, yellow resisted, grey immune, default for 1x) and draw a 2x8 bar
-beside the type: red physical, blue special, grey status. The summary screen
-uses the same bar; contest pages keep the native contest categories.
+effective, yellow resisted, grey immune, default for 1x) and tint the word
+`TYPE` by damage class (red physical, blue special, grey status). The summary
+screen tints the move name itself instead; Emerald's palette has no red in the
+move window's bank, so it borrows index 106 from the global 144-colour table.
+Contest pages keep the native contest categories.
 
 Mapped secondary effects: Play Rough 10% Atk -1, Moonblast 30% SpA -1,
 Spirit Break 100% SpA -1, Strange Steam 20% confusion, Magical Torque 30%

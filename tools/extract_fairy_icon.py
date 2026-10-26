@@ -72,6 +72,10 @@ def main() -> None:
     draw.rectangle((0, HIGHLIGHT_ROW, CELL_W - 1, HIGHLIGHT_ROW), fill=HIGHLIGHT)
     draw.rectangle((0, SHADOW_ROW, CELL_W - 1, SHADOW_ROW), fill=SHADOW)
     canvas.paste(icon, (0, PAD_TOP))
+    # 1px corner cuts, matching the native badges (WATER/FIRE/GRASS).
+    for x, y in ((0, HIGHLIGHT_ROW), (CELL_W - 1, HIGHLIGHT_ROW),
+                 (0, SHADOW_ROW), (CELL_W - 1, SHADOW_ROW)):
+        canvas.putpixel((x, y), (0, 0, 0, 0))
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out)
