@@ -27,6 +27,10 @@ HIGHLIGHT_ROW, SHADOW_ROW = 1, 14
 HIGHLIGHT = (255, 224, 255, 255)
 SHADOW = (174, 108, 174, 255)
 COLUMNS = 4
+# Native badges all use #847B73 for the glyph shadow (WATER/FIRE/GRASS).
+# CFRU's bitmap ships near-black (#313131) and off-white (#F8F8F8) glyphs.
+TEXT_SHADOW = (132, 123, 115, 255)
+TEXT_WHITE = (255, 255, 255, 255)
 # The sheet groups NORMAL/FIRE/WATER/GRASS first; FAIRY is the lone badge on
 # the last row.  Verified against Type_Icons.bmp: row 8, column 0.
 FAIRY_COL, FAIRY_ROW = 0, 8
@@ -76,6 +80,17 @@ def main() -> None:
     for x, y in ((0, HIGHLIGHT_ROW), (CELL_W - 1, HIGHLIGHT_ROW),
                  (0, SHADOW_ROW), (CELL_W - 1, SHADOW_ROW)):
         canvas.putpixel((x, y), (0, 0, 0, 0))
+    # Recolour the glyph to the native badge's shadow/white pair.
+    pixels = canvas.load()
+    for y in range(SLOT_H):
+        for x in range(CELL_W):
+            r, g, b, a = pixels[x, y]
+            if a == 0:
+                continue
+            if r < 100 and g < 100 and b < 100:
+                pixels[x, y] = TEXT_SHADOW
+            elif r > 240 and g > 240 and b > 240:
+                pixels[x, y] = TEXT_WHITE
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out)
