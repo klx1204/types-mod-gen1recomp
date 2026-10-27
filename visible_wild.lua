@@ -122,6 +122,7 @@ local function painter(entry)
     local q = icon.quads and (icon.quads[0] or icon.quads[1])
     local sx = (self.x or 0) - (camX or 0) - 8
     local sy = (self.y or 0) - (camY or 0) - 16
+    love.graphics.setBlendMode("alpha")
     love.graphics.setColor(1, 1, 1, 1)
     if q then
       love.graphics.draw(icon.image, q, sx, sy)
