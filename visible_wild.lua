@@ -111,6 +111,15 @@ local function passable(game, x, y)
   return true
 end
 
+-- Spawning and wandering both stay on tiles the map lists as wild ground, so
+-- an icon never stands on a path or a rooftop.
+local function wildGround(x, y)
+  local E = rt("src.core.game3.encounters")
+  if not (E and E.terrainAt) then return true end
+  local terrain = E.terrainAt(x, y)
+  return terrain == "land"
+end
+
 local function painter(entry)
   return function(self, camX, camY)
     local P = rt("src.core.game3.pokemon")
@@ -134,10 +143,18 @@ local function painter(entry)
       love.graphics.draw(icon.image, sx + ox, sy, 0, flip, 1)
     end
     if entry.shiny then
-      local phase = (now() * 2) % 1
-      local alpha = 0.15 + 0.35 * (1 - math.abs(phase * 2 - 1))
-      love.graphics.setColor(1, 1, 1, alpha)
-      love.graphics.rectangle("line", sx, sy, 32, 32)
+      -- Four sparkles orbiting the icon, emerald-3ds-fairy's idea without
+      -- needing a particle sprite.
+      local t = now()
+      for i = 1, 4 do
+        local a = t * 2.2 + i * math.pi / 2
+        local r = 17 + math.sin(t * 5 + i) * 3
+        local px = sx + 16 + math.cos(a) * r
+        local py = sy + 16 + math.sin(a) * r * 0.55
+        local size = 1.4 + math.sin(t * 9 + i * 2) * 0.7
+        love.graphics.setColor(1, 0.96, 0.72, 0.95)
+        love.graphics.circle("fill", px, py, size)
+      end
       love.graphics.setColor(1, 1, 1, 1)
     end
   end
@@ -145,15 +162,17 @@ end
 
 local function attach(entry)
   local Objects = rt("src.core.game3.objects")
-  if not (Objects and Objects.find) then return end
+  if not (Objects and Objects.find) then return false end
   local eo = Objects.find(entry.localId)
-  if not eo then return end
+  if not eo then return false end
   eo.draw = painter(entry)
   if entry.def then entry.def.draw = eo.draw end
   -- Some spawn paths leave runtime events visible=false; the draw list skips
   -- those, so turn the flag on unconditionally.
   eo.visible, eo.hidden = true, false
   entry.eo = eo
+  entry.attached = true
+  return true
 end
 
 local function spawnOne(game, mapId)
@@ -167,7 +186,7 @@ local function spawnOne(game, mapId)
     local dy = math.random(-RANGE_Y, RANGE_Y)
     if math.abs(dx) >= NEAREST or math.abs(dy) >= NEAREST then
       local x, y = px + dx, py + dy
-      if not occupied(x, y) and passable(game, x, y) then
+      if not occupied(x, y) and wildGround(x, y) and passable(game, x, y) then
         local id = owner.world:spawnNpc(mapId, {
           x = x, y = y, elevation = 3, facing = "down",
           movementType = 0, graphicsId = 0,
@@ -186,6 +205,13 @@ local function spawnOne(game, mapId)
           }
           entries[#entries + 1] = entry
           attach(entry)
+          if entry.shiny then
+            local okA, Audio = pcall(require, "src.core.game3.audio")
+            local okS, SE = pcall(require, "src.core.game3.se_ids")
+            if okA and Audio and Audio.playSe and okS and SE and SE.SE_SHINY then
+              pcall(Audio.playSe, SE.SE_SHINY)
+            end
+          end
           if owner.log then
             owner.log:info("visible wild: %s lv%d at %d,%d (npc %s, def %s)",
               tostring(pick.species), pick.level, x, y, tostring(id), tostring(added and added.localId))
@@ -240,6 +266,7 @@ function VisibleWild.update()
 
   for i = #entries, 1, -1 do
     local e = entries[i]
+    if not e.attached then attach(e) end
     if math.abs(e.cellX - px) > FORGET or math.abs(e.cellY - py) > FORGET then
       removeEntry(e)
       table.remove(entries, i)
@@ -251,7 +278,7 @@ function VisibleWild.update()
       local dy = (dir == 1 and -1) or (dir == 2 and 1) or 0
       local tx, ty = e.cellX + dx, e.cellY + dy
       if tx ~= px or ty ~= py then
-        if not occupied(tx, ty) and passable(game, tx, ty) then
+        if not occupied(tx, ty) and wildGround(tx, ty) and passable(game, tx, ty) then
           e.cellX, e.cellY = tx, ty
           e.facing = (dx > 0 and "right") or (dx < 0 and "left")
             or (dy > 0 and "down") or "up"
