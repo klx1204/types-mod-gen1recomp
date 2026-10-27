@@ -44,11 +44,17 @@ mods/types_mod_gen1recomp/data/...
 | `ALWAYS CATCH` | `ON` / `OFF` |
 | `WILD ENCOUNTERS` | `NORMAL` / `OFF` / `1/4` / `1/2` / `2X` |
 | `SHINY ODDS` | `1/8192` / `1/4096` / `1/1024` / `1/256` / `1/64` / `ALWAYS` |
+| `VISIBLE WILD` | `OFF` / `FEW` / `SOME` / `MANY` |
 
 `TRADE EVO LV. 40` 打开后，通信进化在 40 级（含以上）升级时也会触发；
 需要携带道具的通信进化仍然要带着道具，进化后道具消耗掉。
 
 `WILD ENCOUNTERS` 只影响走路和冲浪，钓鱼、碎岩、剧情遇敌保持原版。
+
+`VISIBLE WILD` 把地图自己的野生宝可梦以 32×32 队伍图标放到遇敌地砖上。
+只要不是 `OFF`，随机遇敌完全关闭，只能撞到明雷才开战。每 2 秒补一只，
+打掉的那只自己消失，离玩家超过 15 格的会消失，换图全部清空。
+`FEW` / `SOME` / `MANY` 分别是 2 / 4 / 6 只。
 
 如果没有物特分家的引擎，mod 仍然会改属性和招式，但物理/特殊按原版
 类型决定。

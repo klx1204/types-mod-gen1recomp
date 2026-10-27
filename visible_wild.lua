@@ -1,0 +1,291 @@
+-- Visible wild encounters: a few of the map's own wild Pokemon walk its
+-- encounter tiles as 32x32 party icons.  Touching one starts its battle;
+-- random encounters stay off while any are allowed to exist.
+--
+-- Modelled on emerald-3ds-fairy's visible wild patch: one is added every two
+-- seconds up to the setting's count, a defeated one disappears on its own,
+-- and leaving the map clears the lot.
+
+local VisibleWild = {}
+
+local MAX = 6
+local COUNTS = { 0, 2, 4, 6 }        -- OFF / FEW / SOME / MANY
+local RANGE_X, RANGE_Y = 11, 6       -- spawn window, in tiles
+local NEAREST = 3                    -- never closer than this
+local FORGET = 15                    -- gone beyond this many tiles
+local SPAWN_SECONDS = 2
+local WALK_MIN, WALK_MAX = 40, 160   -- frames of standing still
+
+function VisibleWild.count(index)
+  return COUNTS[tonumber(index) or 1] or 0
+end
+
+local entries = {}
+local currentMap
+local spawnAt = 0
+local uid = 0
+local owner = nil
+
+local function rt(name)
+  local m = package.loaded[name]
+  if type(m) == "table" then return m end
+  local ok, v = pcall(require, name)
+  return ok and v or nil
+end
+
+local function session()
+  local R = rt("src.core.game3.runtime")
+  return R and R.getSession and R.getSession()
+end
+
+local function currentGame()
+  local R = rt("src.core.game3.runtime")
+  return R and R._game
+end
+
+local function playerOf()
+  return rt("src.core.game3.player")
+end
+
+local function now()
+  return love and love.timer and love.timer.getTime and love.timer.getTime() or os.clock()
+end
+
+local function speciesIdOf(value)
+  local id = tonumber(value)
+  if id then return id end
+  if type(value) == "string" then
+    local P = rt("src.core.game3.pokemon")
+    return P and P.speciesFromName and P.speciesFromName(value) or nil
+  end
+  return nil
+end
+
+--- One slot of the map's land table, weighed like the game weighs it.
+local function pickSlot(mapId)
+  local E = rt("src.core.game3.encounters")
+  local t = E and E.tableFor and E.tableFor(mapId)
+  if type(t) ~= "table" then return nil end
+  local area = t.land or t.grass
+  local slots = type(area) == "table" and (area.slots or area.mons or area) or nil
+  if type(slots) ~= "table" or #slots == 0 then return nil end
+  local total = 0
+  for _, e in ipairs(slots) do
+    if type(e) == "table" then
+      total = total + (tonumber(e.weight) or tonumber(e.chance) or 1)
+    end
+  end
+  if total <= 0 then return nil end
+  local roll = math.random(total)
+  local acc = 0
+  for _, e in ipairs(slots) do
+    if type(e) == "table" then
+      acc = acc + (tonumber(e.weight) or tonumber(e.chance) or 1)
+      if roll <= acc then
+        local id = speciesIdOf(e.species or e[1])
+        if id then
+          local lo = tonumber(e.minLevel or e.level or e[2]) or 2
+          local hi = tonumber(e.maxLevel or e.level or e[2]) or lo
+          if hi < lo then hi = lo end
+          return { species = id, level = lo + math.random(hi - lo + 1) - 1 }
+        end
+      end
+    end
+  end
+  return nil
+end
+
+local function occupied(x, y)
+  for _, e in ipairs(entries) do
+    if e.cellX == x and e.cellY == y then return true end
+  end
+  return false
+end
+
+local function passable(game, x, y)
+  local C = rt("src.core.game3.collision")
+  if C and C.canEnter then
+    local ok = C.canEnter(game, x, y, { fromX = x, fromY = y, dir = "down", elevation = 3 })
+    if ok == false then return false end
+  end
+  return true
+end
+
+local function painter(entry)
+  return function(self, camX, camY)
+    local P = rt("src.core.game3.pokemon")
+    local icon = P and P.icon and P.icon(entry.species)
+    if not (icon and icon.image) then
+      if owner.log then owner.log:info("visible wild: no icon for %s", tostring(entry.species)) end
+      return
+    end
+    local q = icon.quads and (icon.quads[0] or icon.quads[1])
+    local sx = (self.x or 0) - (camX or 0) - 8
+    local sy = (self.y or 0) - (camY or 0) - 16
+    love.graphics.setColor(1, 1, 1, 1)
+    if q then
+      love.graphics.draw(icon.image, q, sx, sy)
+    else
+      love.graphics.draw(icon.image, sx, sy)
+    end
+    if entry.shiny then
+      local phase = (now() * 2) % 1
+      local alpha = 0.15 + 0.35 * (1 - math.abs(phase * 2 - 1))
+      love.graphics.setColor(1, 1, 1, alpha)
+      love.graphics.rectangle("line", sx, sy, 32, 32)
+      love.graphics.setColor(1, 1, 1, 1)
+    end
+  end
+end
+
+local function attach(entry)
+  local Objects = rt("src.core.game3.objects")
+  if not (Objects and Objects.find) then return end
+  local eo = Objects.find(entry.localId)
+  if not eo then return end
+  eo.draw = painter(entry)
+  if entry.def then entry.def.draw = eo.draw end
+  -- Some spawn paths leave runtime events visible=false; the draw list skips
+  -- those, so turn the flag on unconditionally.
+  eo.visible, eo.hidden = true, false
+  entry.eo = eo
+end
+
+local function spawnOne(game, mapId)
+  local pick = pickSlot(mapId)
+  if not pick then return false end
+  local P = playerOf()
+  if not (P and P.cellX) then return false end
+  local px, py = P.cellX, P.cellY
+  for _ = 1, 40 do
+    local dx = math.random(-RANGE_X, RANGE_X)
+    local dy = math.random(-RANGE_Y, RANGE_Y)
+    if math.abs(dx) >= NEAREST or math.abs(dy) >= NEAREST then
+      local x, y = px + dx, py + dy
+      if not occupied(x, y) and passable(game, x, y) then
+        local id = owner.world:spawnNpc(mapId, {
+          x = x, y = y, elevation = 3, facing = "down",
+          movementType = 0, graphicsId = 0,
+        })
+        if id then
+          local Objects = rt("src.core.game3.objects")
+          local defs = Objects and Objects.runtimeByMap and Objects.runtimeByMap[mapId]
+          local added = defs and defs[#defs]
+          uid = uid + 1
+          local entry = {
+            uid = uid, npcId = id, species = pick.species, level = pick.level,
+            cellX = x, cellY = y, idle = math.random(WALK_MIN, WALK_MAX),
+            localId = added and added.localId or nil,
+            def = added,
+            shiny = owner.isShiny and owner.isShiny() or false,
+          }
+          entries[#entries + 1] = entry
+          attach(entry)
+          if owner.log then
+            owner.log:info("visible wild: %s lv%d at %d,%d (npc %s, def %s)",
+              tostring(pick.species), pick.level, x, y, tostring(id), tostring(added and added.localId))
+          end
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
+local function removeEntry(entry)
+  if entry.npcId and owner.world and owner.world.removeNpc then
+    pcall(function() owner.world:removeNpc(entry.npcId) end)
+  end
+end
+
+function VisibleWild.clear()
+  for _, e in ipairs(entries) do removeEntry(e) end
+  entries = {}
+  spawnAt = now() + SPAWN_SECONDS
+end
+
+function VisibleWild.most()
+  return VisibleWild.count(owner.setting and owner.setting() or 1)
+end
+
+function VisibleWild.at(x, y)
+  for _, e in ipairs(entries) do
+    if e.cellX == x and e.cellY == y then return e end
+  end
+end
+
+--- Called once per player step.
+function VisibleWild.update()
+  local s = session()
+  local mapId = s and s.map
+  if mapId ~= currentMap then
+    currentMap = mapId
+    VisibleWild.clear()
+  end
+  local most = VisibleWild.most()
+  if most <= 0 or not mapId then
+    if #entries > 0 then VisibleWild.clear() end
+    return
+  end
+  local P = playerOf()
+  if not (P and P.cellX) then return end
+  local game = currentGame()
+  local px, py = P.cellX, P.cellY
+
+  for i = #entries, 1, -1 do
+    local e = entries[i]
+    if math.abs(e.cellX - px) > FORGET or math.abs(e.cellY - py) > FORGET then
+      removeEntry(e)
+      table.remove(entries, i)
+    elseif e.idle and e.idle > 0 then
+      e.idle = e.idle - 1
+    else
+      local dir = math.random(4)
+      local dx = (dir == 3 and 1) or (dir == 4 and -1) or 0
+      local dy = (dir == 1 and -1) or (dir == 2 and 1) or 0
+      local tx, ty = e.cellX + dx, e.cellY + dy
+      if tx ~= px or ty ~= py then
+        if not occupied(tx, ty) and passable(game, tx, ty) then
+          e.cellX, e.cellY = tx, ty
+          if e.def then e.def.x, e.def.y = tx, ty end
+          if e.eo then
+            e.eo.x, e.eo.y = tx * 16, ty * 16
+            e.eo.cellX, e.eo.cellY = tx, ty
+            e.eo.px, e.eo.py = tx * 16, ty * 16
+          end
+        end
+      end
+      e.idle = math.random(WALK_MIN, WALK_MAX)
+    end
+  end
+
+  if #entries < most and now() >= spawnAt then
+    spawnAt = now() + SPAWN_SECONDS
+    spawnOne(game, mapId)
+  end
+end
+
+function VisibleWild.remove(entry)
+  if not entry then return end
+  for i, e in ipairs(entries) do
+    if e == entry then
+      removeEntry(e)
+      table.remove(entries, i)
+      return
+    end
+  end
+end
+
+function VisibleWild.setup(mod, opts)
+  owner = {
+    world = mod.world,
+    setting = opts.setting,
+    isShiny = opts.isShiny,
+    objects = nil,
+    log = opts.log,
+  }
+  return VisibleWild
+end
+
+return VisibleWild

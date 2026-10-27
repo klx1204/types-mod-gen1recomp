@@ -53,6 +53,7 @@ move because the engine has no per-move category yet.
    - `ALWAYS CATCH`: `ON` / `OFF`
    - `WILD ENCOUNTERS`: `NORMAL` / `OFF` / `1/4` / `1/2` / `2X`
    - `SHINY ODDS`: `1/8192` / `1/4096` / `1/1024` / `1/256` / `1/64` / `ALWAYS`
+   - `VISIBLE WILD`: `OFF` / `FEW` / `SOME` / `MANY` — 0 / 2 / 4 / 6 roaming icons
 
 There is no separate `ENHANCEMENTS` page yet: the rows are added to the
 top-level OPTIONS list. `WILD ENCOUNTERS` covers walking and surfing only;

@@ -15,6 +15,16 @@ local function readData(mod, name)
   return value
 end
 
+local function readModule(mod, rel)
+  local src, readErr = mod:read(rel)
+  if not src then return nil, readErr or (rel .. " missing") end
+  local chunk, compileErr = load(src, "@" .. mod.path .. "/" .. rel, "t", {})
+  if not chunk then return nil, compileErr end
+  local ok, value = pcall(chunk)
+  if not ok then return nil, value end
+  return value
+end
+
 local function deepcopy(value)
   if type(value) ~= "table" then return value end
   local out = {}
@@ -545,6 +555,8 @@ return function(mod)
       { "NORMAL", "OFF", "1/4", "1/2", "2X" })
     cycleRow("gen9_shiny_odds", "SHINY ODDS", "shiny_odds",
       { "1/8192", "1/4096", "1/1024", "1/256", "1/64", "ALWAYS" })
+    cycleRow("gen9_visible_wild", "VISIBLE WILD", "visible_wild",
+      { "OFF", "FEW", "SOME", "MANY" })
     return out
   end)
 
@@ -625,6 +637,8 @@ return function(mod)
   -- the engine still routes fishing and set encounters elsewhere.
   local ENCOUNTER_RATES = { "NORMAL", "OFF", "1/4", "1/2", "2X" }
   mod.hooks:wrap("encounter.roll", function(next, tableForMap, ctx)
+    local VISIBLE_WILD = { "OFF", "FEW", "SOME", "MANY" }
+    if VISIBLE_WILD[choice("visible_wild", VISIBLE_WILD)] ~= "OFF" then return nil end
     local mode = ENCOUNTER_RATES[choice("encounter_rate", ENCOUNTER_RATES)]
     local enc = next(tableForMap, ctx)
     if mode == "OFF" then return nil end
@@ -659,6 +673,49 @@ return function(mod)
     if mode == "1/8192" then return next(ctx) end
     return false
   end)
+
+  local VisibleWild = readModule(mod, "visible_wild.lua")
+  if VisibleWild then
+    local VISIBLE_WILD = { "OFF", "FEW", "SOME", "MANY" }
+    VisibleWild.setup(mod, {
+      setting = function() return choice("visible_wild", VISIBLE_WILD) end,
+      log = mod.log,
+      isShiny = function()
+        local mode = SHINY_ODDS[choice("shiny_odds", SHINY_ODDS)]
+        if mode == "ALWAYS" then return true end
+        local denom = SHINY_DENOM[mode]
+        return denom ~= nil and shinyRoll(denom)
+      end,
+    })
+    mod.hooks:wrap("input.step", function(next, game, dt)
+      local result = next(game, dt)
+      pcall(VisibleWild.update)
+      return result
+    end)
+    local okC, Collision = pcall(require, "src.core.game3.collision")
+    if okC and Collision and type(Collision.canEnter) == "function"
+        and not Collision._visibleWildWrapped then
+      Collision._visibleWildWrapped = true
+      local originalCanEnter = Collision.canEnter
+      Collision.canEnter = function(game, x, y, opts, ...)
+        local entry = VisibleWild.at(x, y)
+        if entry then
+          VisibleWild.remove(entry)
+          -- The ROM key, not the localized display name: the battle API
+          -- resolves species by the English constant.
+          local key = entry.species
+          local okP, Pokemon = pcall(require, "src.core.game3.pokemon")
+          if okP and Pokemon then
+            local rom = Pokemon._zhRomNames and Pokemon._zhRomNames[entry.species]
+            if rom then key = rom end
+          end
+          mod.world:startWildBattle(key, entry.level)
+          return false, "entity"
+        end
+        return originalCanEnter(game, x, y, opts, ...)
+      end
+    end
+  end
 
   -- Apply the saved mode once the engine has a save and a dataset.  This  -- runs for VANILLA too: registering FAIRY in type_chart makes the loader
   -- install its Gen 9 overlay before the game boots, so a VANILLA save has
