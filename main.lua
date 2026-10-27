@@ -126,16 +126,43 @@ return function(mod)
     if type(zh) ~= "table" then return end
     local okP, Pokemon = pcall(require, "src.core.game3.pokemon")
     local okM, Moves = pcall(require, "src.core.game3.battle.moves")
-    if okP and Pokemon and Pokemon._names then
-      for name, text in pairs(zh.species or {}) do
-        local id = Pokemon.speciesFromName and Pokemon.speciesFromName(name)
-        if id then Pokemon._names[id] = text end
-      end
+    if not (okP and Pokemon and Pokemon._names) then return end
+    -- Keep the English ROM names so a nickname that still matches the
+    -- species name can be shown in Chinese.
+    if not Pokemon._zhRomNames then
+      Pokemon._zhRomNames = {}
+      for id, name in pairs(Pokemon._names) do Pokemon._zhRomNames[id] = name end
     end
-    if okM and Moves and okP and Pokemon and Pokemon._moveNames then
+    for name, text in pairs(zh.species or {}) do
+      local id = Pokemon.speciesFromName and Pokemon.speciesFromName(name)
+      if id then Pokemon._names[id] = text end
+    end
+    if okM and Moves and Pokemon._moveNames then
       for name, text in pairs(zh.moves or {}) do
         local id = Moves.numForName and Moves.numForName(name)
         if id then Pokemon._moveNames[id] = text end
+      end
+    end
+    local function localized(mon, name)
+      local species = mon and ((Pokemon.speciesOf and Pokemon.speciesOf(mon)) or mon.species)
+      local zhName = species and Pokemon._names[species]
+      local romName = species and Pokemon._zhRomNames[species]
+      if zhName and romName and name == romName then return zhName end
+      return name
+    end
+    if Pokemon.displayName and not Pokemon._zhDisplayWrapped then
+      Pokemon._zhDisplayWrapped = true
+      local original = Pokemon.displayName
+      Pokemon.displayName = function(mon)
+        return localized(mon, original(mon))
+      end
+    end
+    local okS, State = pcall(require, "src.core.game3.battle.state")
+    if okS and State and State.displayName and not State._zhWrapped then
+      State._zhWrapped = true
+      local original = State.displayName
+      State.displayName = function(battler)
+        return localized(battler and battler.mon, original(battler))
       end
     end
   end
