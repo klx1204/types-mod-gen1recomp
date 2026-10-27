@@ -1,7 +1,7 @@
 {
   "id": "types_mod_gen1recomp",
   "name": "Gen 9 Types & Battle Data",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "api": 3,
   "entry": "main.lua",
   "profile": "content",

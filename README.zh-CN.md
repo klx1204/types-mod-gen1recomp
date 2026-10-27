@@ -31,6 +31,25 @@ mods/types_mod_gen1recomp/data/...
 然后在 `MODS` 里启用 **Gen 9 Types & Battle Data**，把
 `OPTIONS` → `BATTLE DATA` 切到 `GEN9`。
 
+`OPTIONS` 底部新增的行：
+
+| 行 | 取值 |
+| --- | --- |
+| `BATTLE DATA` | `GEN9` / `VANILLA` |
+| `EXP FOR CATCHING` | `ON` / `OFF` |
+| `PARTY EXP SHARE` | `ON` / `OFF` |
+| `HMs WITHOUT MOVE` | `ON` / `OFF` |
+| `INFINITE TMS` | `ON` / `OFF` |
+| `TRADE EVO LV. 40` | `ON` / `OFF` |
+| `ALWAYS CATCH` | `ON` / `OFF` |
+| `WILD ENCOUNTERS` | `NORMAL` / `OFF` / `1/4` / `1/2` / `2X` |
+| `SHINY ODDS` | `1/8192` / `1/4096` / `1/1024` / `1/256` / `1/64` / `ALWAYS` |
+
+`TRADE EVO LV. 40` 打开后，通信进化在 40 级（含以上）升级时也会触发；
+需要携带道具的通信进化仍然要带着道具，进化后道具消耗掉。
+
+`WILD ENCOUNTERS` 只影响走路和冲浪，钓鱼、碎岩、剧情遇敌保持原版。
+
 如果没有物特分家的引擎，mod 仍然会改属性和招式，但物理/特殊按原版
 类型决定。
 

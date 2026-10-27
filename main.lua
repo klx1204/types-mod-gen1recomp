@@ -441,6 +441,21 @@ return function(mod)
     return value
   end
 
+  -- Multi-value rows (WILD ENCOUNTERS, SHINY ODDS) store their index, so the
+  -- saved value survives a table reorder only if the order is kept.
+  local function choice(key, values)
+    local ok, stored = pcall(function() return mod.save:get(key, 1) end)
+    local index = ok and tonumber(stored) or 1
+    if not index or index < 1 or index > #values then index = 1 end
+    return index
+  end
+
+  local function cycleChoice(key, values)
+    local index = choice(key, values) % #values + 1
+    pcall(function() mod.save:set(key, index) end)
+    return index
+  end
+
   -- The engine validates a move's type against the type_chart registry while
   -- the move is written, so FAIRY has to exist there before the moves below
   -- are registered.  Registering the chart also teaches the engine's custom
@@ -511,10 +526,25 @@ return function(mod)
       }
     end
 
+    local function cycleRow(id, label, key, values)
+      out[#out + 1] = {
+        id = id,
+        label = label,
+        value = function() return values[choice(key, values)] end,
+        step = function() return cycleChoice(key, values) end,
+      }
+    end
+
     toggleRow("gen9_exp_catch", "EXP FOR CATCHING", "exp_catch")
     toggleRow("gen9_exp_share", "PARTY EXP SHARE", "exp_share")
     toggleRow("gen9_field_hms", "HMs WITHOUT MOVE", "field_hms")
     toggleRow("gen9_infinite_tms", "INFINITE TMS", "infinite_tms")
+    toggleRow("gen9_trade_evo", "TRADE EVO LV. 40", "trade_evo")
+    toggleRow("gen9_always_catch", "ALWAYS CATCH", "always_catch")
+    cycleRow("gen9_encounter_rate", "WILD ENCOUNTERS", "encounter_rate",
+      { "NORMAL", "OFF", "1/4", "1/2", "2X" })
+    cycleRow("gen9_shiny_odds", "SHINY ODDS", "shiny_odds",
+      { "1/8192", "1/4096", "1/1024", "1/256", "1/64", "ALWAYS" })
     return out
   end)
 
@@ -557,8 +587,80 @@ return function(mod)
     return ok, resultKind, text
   end)
 
-  -- Apply the saved mode once the engine has a save and a dataset.  This
-  -- runs for VANILLA too: registering FAIRY in type_chart makes the loader
+  -- Trade evolutions at Lv. 40 (emerald-3ds-fairy 0012).  A trade evolution
+  -- happens on reaching the level; an item trade evolution still needs its
+  -- item, which is used up afterwards, as a real trade would.
+  local tradeEvoPending = setmetatable({}, { __mode = "k" })
+  mod.hooks:wrap("evolution.check", function(next, game, mon, view, trigger)
+    local matched = next(game, mon, view, trigger)
+    if matched then return true end
+    if not flag("trade_evo") or not mon then return false end
+    if not (trigger and trigger.kind == "levelup") then return false end
+    local method = view and view.method
+    if method ~= "EVO_TRADE" and method ~= "EVO_TRADE_ITEM" then return false end
+    if (tonumber(mon.level) or 0) < 40 then return false end
+    if method == "EVO_TRADE_ITEM" then
+      local held = tonumber(mon.item or mon.heldItem) or 0
+      if held == 0 or held ~= tonumber(view.param) then return false end
+      tradeEvoPending[mon] = true
+    end
+    return true
+  end)
+
+  mod.events:on("pokemon.evolved", function(e)
+    local mon = e and e.mon
+    if not (mon and tradeEvoPending[mon]) then return end
+    tradeEvoPending[mon] = nil
+    mon.item, mon.heldItem = 0, 0
+    if mon.heldItemId ~= nil then mon.heldItemId = 0 end
+  end)
+
+  -- Always catch: skip the shake roll entirely.
+  mod.hooks:wrap("catch.rate", function(next, ball, mon, species, opts)
+    if flag("always_catch") then return true, 4 end
+    return next(ball, mon, species, opts)
+  end)
+
+  -- Wild encounter rate (emerald-3ds-fairy 0021).  Walking and surfing only:
+  -- the engine still routes fishing and set encounters elsewhere.
+  local ENCOUNTER_RATES = { "NORMAL", "OFF", "1/4", "1/2", "2X" }
+  mod.hooks:wrap("encounter.roll", function(next, tableForMap, ctx)
+    local mode = ENCOUNTER_RATES[choice("encounter_rate", ENCOUNTER_RATES)]
+    local enc = next(tableForMap, ctx)
+    if mode == "OFF" then return nil end
+    if not enc then
+      -- 2X is one extra roll, which doubles p without changing it for a
+      -- success that already happened.
+      if mode == "2X" then return next(tableForMap, ctx) end
+      return nil
+    end
+    local rng = (ctx and ctx.rng) or math.random
+    local roll = function() return (rng() or 0) end
+    if mode == "1/4" and roll() % 4 ~= 1 then return nil end
+    if mode == "1/2" and roll() % 2 ~= 1 then return nil end
+    return enc
+  end)
+
+  -- Shiny odds (emerald-3ds-fairy 0022); the first step is the native roll.
+  local SHINY_ODDS = { "1/8192", "1/4096", "1/1024", "1/256", "1/64", "ALWAYS" }
+  local SHINY_DENOM = { ["1/4096"] = 4096, ["1/1024"] = 1024, ["1/256"] = 256, ["1/64"] = 64 }
+  local okRng, Rng = pcall(require, "src.core.game3.rng")
+  local function shinyRoll(denom)
+    if okRng and Rng and type(Rng.Random) == "function" then
+      return Rng.Random() % denom == 0
+    end
+    return math.random(denom) == 1
+  end
+  mod.hooks:wrap("shiny.roll", function(next, ctx)
+    local mode = SHINY_ODDS[choice("shiny_odds", SHINY_ODDS)]
+    if mode == "ALWAYS" then return true end
+    local denom = SHINY_DENOM[mode]
+    if denom and shinyRoll(denom) then return true end
+    if mode == "1/8192" then return next(ctx) end
+    return false
+  end)
+
+  -- Apply the saved mode once the engine has a save and a dataset.  This  -- runs for VANILLA too: registering FAIRY in type_chart makes the loader
   -- install its Gen 9 overlay before the game boots, so a VANILLA save has
   -- to clear that overlay explicitly instead of assuming the engine is
   -- still pristine.

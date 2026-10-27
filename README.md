@@ -48,10 +48,15 @@ move because the engine has no per-move category yet.
 3. Enable **Gen 9 Types & Battle Data** in the mod manager.
 4. Open **OPTIONS** and scroll to the rows appended at the bottom:
    - `BATTLE DATA`: `GEN 9` / `VANILLA`
-   - individual enhancement toggles
+   - `EXP FOR CATCHING`, `PARTY EXP SHARE`, `HMs WITHOUT MOVE`, `INFINITE TMS`: `ON` / `OFF`
+   - `TRADE EVO LV. 40`: `ON` / `OFF` — trade evolutions also happen on reaching Lv. 40
+   - `ALWAYS CATCH`: `ON` / `OFF`
+   - `WILD ENCOUNTERS`: `NORMAL` / `OFF` / `1/4` / `1/2` / `2X`
+   - `SHINY ODDS`: `1/8192` / `1/4096` / `1/1024` / `1/256` / `1/64` / `ALWAYS`
 
 There is no separate `ENHANCEMENTS` page yet: the rows are added to the
-top-level OPTIONS list.
+top-level OPTIONS list. `WILD ENCOUNTERS` covers walking and surfing only;
+fishing, Rock Smash and story encounters keep the game's own rate.
 
 The data mode can only be changed outside battle. In battle the option refuses
 the change and keeps the current mode.
