@@ -124,10 +124,14 @@ local function painter(entry)
     local sy = (self.y or 0) - (camY or 0) - 16
     love.graphics.setBlendMode("alpha")
     love.graphics.setColor(1, 1, 1, 1)
+    -- Only left/right reads from a single front icon: mirror it instead of
+    -- pretending the party sprite has four facings.
+    local flip = entry.facing == "left" and -1 or 1
+    local ox = flip < 0 and 32 or 0
     if q then
-      love.graphics.draw(icon.image, q, sx, sy)
+      love.graphics.draw(icon.image, q, sx + ox, sy, 0, flip, 1)
     else
-      love.graphics.draw(icon.image, sx, sy)
+      love.graphics.draw(icon.image, sx + ox, sy, 0, flip, 1)
     end
     if entry.shiny then
       local phase = (now() * 2) % 1
@@ -175,7 +179,7 @@ local function spawnOne(game, mapId)
           uid = uid + 1
           local entry = {
             uid = uid, npcId = id, species = pick.species, level = pick.level,
-            cellX = x, cellY = y, idle = math.random(WALK_MIN, WALK_MAX),
+            cellX = x, cellY = y, facing = "down", idle = math.random(WALK_MIN, WALK_MAX),
             localId = added and added.localId or nil,
             def = added,
             shiny = owner.isShiny and owner.isShiny() or false,
@@ -249,6 +253,8 @@ function VisibleWild.update()
       if tx ~= px or ty ~= py then
         if not occupied(tx, ty) and passable(game, tx, ty) then
           e.cellX, e.cellY = tx, ty
+          e.facing = (dx > 0 and "right") or (dx < 0 and "left")
+            or (dy > 0 and "down") or "up"
           if e.def then e.def.x, e.def.y = tx, ty end
           if e.eo then
             e.eo.x, e.eo.y = tx * 16, ty * 16
