@@ -98,6 +98,7 @@ return function(mod)
     "move_categories",
     "moves_fairy",
     "learnsets_fairy",
+    "zh_names",
   }) do
     local value, err = readData(mod, name)
     if value == nil then
@@ -115,6 +116,32 @@ return function(mod)
   if current == "GEN9" and not data.types.complete then
     mod.log:warn("Gen 9 data is incomplete; staying in VANILLA")
     current = "VANILLA"
+  end
+
+  -- Chinese names: a CJK TTF covers only CJK codepoints, so the rest of the
+  -- UI keeps the ROM atlas.  The table is optional; without it the mod runs
+  -- with English names.
+  local function applyZhNames()
+    local zh = data.zh_names
+    if type(zh) ~= "table" then return end
+    local okP, Pokemon = pcall(require, "src.core.game3.pokemon")
+    local okM, Moves = pcall(require, "src.core.game3.battle.moves")
+    if okP and Pokemon and Pokemon._names then
+      for name, text in pairs(zh.species or {}) do
+        local id = Pokemon.speciesFromName and Pokemon.speciesFromName(name)
+        if id then Pokemon._names[id] = text end
+      end
+    end
+    if okM and Moves and okP and Pokemon and Pokemon._moveNames then
+      for name, text in pairs(zh.moves or {}) do
+        local id = Moves.numForName and Moves.numForName(name)
+        if id then Pokemon._moveNames[id] = text end
+      end
+    end
+  end
+
+  if type(data.zh_names) == "table" then
+    applyZhNames()
   end
 
   local baseline
@@ -509,6 +536,7 @@ return function(mod)
   -- to clear that overlay explicitly instead of assuming the engine is
   -- still pristine.
   local function restore()
+    applyZhNames()
     local ok, why
     if current == "GEN9" then
       ok, why = apply("GEN9", true)
