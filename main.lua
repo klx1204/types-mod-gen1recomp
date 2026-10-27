@@ -107,9 +107,9 @@ return function(mod)
     data[name] = value
   end
 
-  local current = "VANILLA"
+  local current = "GEN9"
   do
-    local ok, saved = pcall(function() return mod.save:get("mode", "VANILLA") end)
+    local ok, saved = pcall(function() return mod.save:get("mode", "GEN9") end)
     if ok and (saved == "GEN9" or saved == "VANILLA") then current = saved end
   end
   if current == "GEN9" and not data.types.complete then

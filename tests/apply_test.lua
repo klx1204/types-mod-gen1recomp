@@ -110,6 +110,12 @@ for _, row in ipairs(rows) do
 end
 assert(battleRow, "BATTLE DATA row missing")
 
+-- The mod now starts in GEN9 on a fresh save, but apply() only runs on
+-- game.ready/save.loaded.  Step it back to VANILLA first so this test keeps
+-- exercising both directions from a known state.
+if battleRow.value() == "GEN9" then
+  assert(battleRow.step({}) == true, "GEN9 -> VANILLA should apply")
+end
 assert(battleRow.value() == "VANILLA", "initial mode must be VANILLA")
 assert(battleRow.step({}) == true, "VANILLA -> GEN9 should apply")
 assert(overlay ~= nil, "Types.useOverlay not called")
