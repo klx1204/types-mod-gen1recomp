@@ -38,8 +38,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: klx1204/gen1recomp-ps-split
-          ref: ps-split
+          repository: klx1204/gen1recomp-plus
+          ref: plus
           path: engine
       - name: Install LuaJIT
         run: |
