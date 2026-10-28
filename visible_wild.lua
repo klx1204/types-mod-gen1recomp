@@ -102,10 +102,17 @@ local function occupied(x, y)
   return false
 end
 
-local function passable(game, x, y)
+local function passable(game, x, y, fromX, fromY)
   local C = rt("src.core.game3.collision")
   if C and C.canEnter then
-    local ok = C.canEnter(game, x, y, { fromX = x, fromY = y, dir = "down", elevation = 3 })
+    local dx = x - (fromX or x)
+    local dy = y - (fromY or y)
+    local dir = (dx > 0 and "right") or (dx < 0 and "left")
+      or (dy > 0 and "down") or "up"
+    local ok = C.canEnter(game, x, y, {
+      fromX = fromX or x, fromY = fromY or y, dir = dir,
+      elevation = 3,
+    })
     if ok == false then return false end
   end
   return true
@@ -118,6 +125,15 @@ local function wildGround(x, y)
   if not (E and E.terrainAt) then return true end
   local terrain = E.terrainAt(x, y)
   return terrain == "land"
+end
+
+local function monPicture(species, shiny, back)
+  local P = rt("src.core.game3.pokemon")
+  if not P then return nil end
+  local fn = back and P.backPic or P.frontPic
+  if type(fn) ~= "function" then return nil end
+  local ok, entry = pcall(fn, species, nil, shiny)
+  return ok and entry or nil
 end
 
 local function painter(entry)
@@ -133,14 +149,25 @@ local function painter(entry)
     local sy = (self.y or 0) - (camY or 0) - 16
     love.graphics.setBlendMode("alpha")
     love.graphics.setColor(1, 1, 1, 1)
-    -- Only left/right reads from a single front icon: mirror it instead of
-    -- pretending the party sprite has four facings.
-    local flip = entry.facing == "left" and -1 or 1
-    local ox = flip < 0 and 32 or 0
-    if q then
-      love.graphics.draw(icon.image, q, sx + ox, sy, 0, flip, 1)
-    else
-      love.graphics.draw(icon.image, sx + ox, sy, 0, flip, 1)
+    -- Up/down use the battle art (64x64 scaled to 32); left/right flip the
+    -- party icon, which reads better than a front picture sliding sideways.
+    local facing = entry.facing or "down"
+    local drawn = false
+    if facing == "up" or facing == "down" then
+      local pic = monPicture(entry.species, entry.shiny, facing == "up")
+      if pic and pic.image then
+        love.graphics.draw(pic.image, sx, sy, 0, 0.5, 0.5)
+        drawn = true
+      end
+    end
+    if not drawn then
+      local flip = facing == "left" and -1 or 1
+      local ox = flip < 0 and 32 or 0
+      if q then
+        love.graphics.draw(icon.image, q, sx + ox, sy, 0, flip, 1)
+      else
+        love.graphics.draw(icon.image, sx + ox, sy, 0, flip, 1)
+      end
     end
     if entry.shiny then
       -- Four sparkles orbiting the icon, emerald-3ds-fairy's idea without
@@ -186,7 +213,7 @@ local function spawnOne(game, mapId)
     local dy = math.random(-RANGE_Y, RANGE_Y)
     if math.abs(dx) >= NEAREST or math.abs(dy) >= NEAREST then
       local x, y = px + dx, py + dy
-      if not occupied(x, y) and wildGround(x, y) and passable(game, x, y) then
+      if not occupied(x, y) and wildGround(x, y) and passable(game, x, y, px, py) then
         local id = owner.world:spawnNpc(mapId, {
           x = x, y = y, elevation = 3, facing = "down",
           movementType = 0, graphicsId = 0,
@@ -278,7 +305,7 @@ function VisibleWild.update()
       local dy = (dir == 1 and -1) or (dir == 2 and 1) or 0
       local tx, ty = e.cellX + dx, e.cellY + dy
       if tx ~= px or ty ~= py then
-        if not occupied(tx, ty) and wildGround(tx, ty) and passable(game, tx, ty) then
+        if not occupied(tx, ty) and wildGround(tx, ty) and passable(game, tx, ty, e.cellX, e.cellY) then
           e.cellX, e.cellY = tx, ty
           e.facing = (dx > 0 and "right") or (dx < 0 and "left")
             or (dy > 0 and "down") or "up"
