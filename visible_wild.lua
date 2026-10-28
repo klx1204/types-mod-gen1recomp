@@ -267,7 +267,7 @@ end
 function VisibleWild.clear()
   for _, e in ipairs(entries) do removeEntry(e) end
   entries = {}
-  spawnAt = now() + SPAWN_SECONDS
+  spawnAt = now()
 end
 
 function VisibleWild.most()
@@ -329,8 +329,14 @@ function VisibleWild.update()
   end
 
   if #entries < most and now() >= spawnAt then
+    -- Walking into a map should show Pokemon straight away: fill the whole
+    -- allowance on the first pass, then top up one every two seconds.
+    local want = (#entries == 0) and most or 1
+    for _ = 1, want do
+      if #entries >= most then break end
+      if not spawnOne(game, mapId) then break end
+    end
     spawnAt = now() + SPAWN_SECONDS
-    spawnOne(game, mapId)
   end
 end
 
