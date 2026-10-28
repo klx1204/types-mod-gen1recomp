@@ -566,12 +566,31 @@ return function(mod)
     return next(ctx)
   end)
 
-  -- Party EXP Share: award every healthy party member through applyShare.
+  -- Party EXP Share: let the native award run first (it records who levelled
+  -- up, which the evolution check reads), then give every healthy party
+  -- member its own share.  A mon that levels from the share is recorded too,
+  -- otherwise it would grow without ever being offered its evolution.
   mod.hooks:wrap("battle.exp_award", function(next, ctx)
-    if not flag("exp_share") then return next(ctx) end
-    for _, mon in ipairs(ctx.alive or {}) do
-      if type(ctx.applyShare) == "function" then ctx.applyShare(mon, 1) end
+    local result = next(ctx)
+    if not flag("exp_share") then return result end
+    local okR, Runtime = pcall(require, "src.core.game3.runtime")
+    local session = okR and Runtime and Runtime.getSession and Runtime.getSession() or nil
+    local party = session and session.party
+    if not (party and ctx and type(ctx.applyShare) == "function") then return result end
+    local okB, Battle = pcall(require, "src.core.game3.battle.init")
+    if okB and Battle then Battle._leveledUp = Battle._leveledUp or {} end
+    for i, mon in ipairs(party) do
+      local hp = tonumber(mon and mon.hp) or tonumber(mon and mon.currentHp) or 0
+      if type(mon) == "table" and not mon.isEgg and not mon.egg and hp > 0 then
+        local before = tonumber(mon.level) or 1
+        pcall(ctx.applyShare, mon, 1)
+        local after = tonumber(mon.level) or 1
+        if after > before and Battle and Battle._leveledUp then
+          Battle._leveledUp[i] = true
+        end
+      end
     end
+    return result
   end)
 
   -- HMs without knowing the move: any healthy party member can act as the user.
