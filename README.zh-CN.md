@@ -68,11 +68,11 @@ mods/types_mod_gen1recomp/data/...
 
 | 引擎 | 属性/物种/招式 | 物特分家 | 菜单染色 |
 | --- | --- | --- | --- |
-| `gen1recomp-ps-split` | 支持 | 支持 | 支持 |
+| `gen1recomp-plus` | 支持 | 支持 | 支持 |
 | 官方 `gen1recomp` | 支持 | 不支持（按属性） | 不支持 |
 
 fork 下载：
-https://github.com/klx1204/gen1recomp-ps-split/releases
+https://github.com/klx1204/gen1recomp-plus/releases
 
 ## 数据
 

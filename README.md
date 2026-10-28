@@ -34,7 +34,7 @@ day/night, followers, or 3DS-specific features.
 | Engine | Gen 9 types/species/moves | Per-move physical/special | Battle menu category/effectiveness |
 | --- | --- | --- | --- |
 | Official gen1recomp | Yes | No (type-based fallback) | No |
-| `gen1recomp-ps-split` | Yes | Yes (when the fork sets `Types.MOVE_CATEGORY`) | Yes (same condition) |
+| `gen1recomp-plus` | Yes | Yes (when the fork sets `Types.MOVE_CATEGORY`) | Yes (same condition) |
 
 The mod detects the engine capability at load time. On the official engine it
 runs in **compat mode** and logs a warning: Play Rough is treated as a special
@@ -177,7 +177,7 @@ covers the `BATTLE DATA` switch, the Gen 9 chart, the 18 Fairy species, the
 
 `.github/workflows/ci.yml` validates the manifest and data tables, rejects
 local absolute paths, runs `tests/data_test.lua`, and checks out the
-`gen1recomp-ps-split` fork for an engine smoke test.
+`gen1recomp-plus` fork for an engine smoke test.
 
 See `AGENTS.md` for the hard rules and the two-repository architecture.
 
