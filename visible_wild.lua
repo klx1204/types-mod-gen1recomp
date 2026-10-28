@@ -231,7 +231,14 @@ local function spawnOne(game, mapId)
             shiny = owner.isShiny and owner.isShiny() or false,
           }
           entries[#entries + 1] = entry
-          attach(entry)
+          if not attach(entry) then
+            -- Without a painter the event falls back to graphics id 0, which
+            -- is the player character in FireRed.  Drop it rather than let a
+            -- Brendan clone wander the map.
+            removeEntry(entry)
+            table.remove(entries)
+            return false
+          end
           if entry.shiny then
             local okA, Audio = pcall(require, "src.core.game3.audio")
             local okS, SE = pcall(require, "src.core.game3.se_ids")
