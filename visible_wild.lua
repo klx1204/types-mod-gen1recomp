@@ -230,6 +230,7 @@ local function spawnOne(game, mapId)
         local id = owner.world:spawnNpc(mapId, {
           x = x, y = y, elevation = 3, facing = "down",
           movementType = 0, graphicsId = 0,
+          wildIcon = true,
         })
         if id then
           local Objects = rt("src.core.game3.objects")
@@ -309,7 +310,7 @@ function VisibleWild.sweep()
   if not (Objects and Objects.forDraw and Objects.removeRuntimeObject) then return end
   for _, eo in ipairs(Objects.forDraw()) do
     local def = eo.def
-    if def and def.owner == owner.modId and not eo.draw then
+    if def and def.wildIcon and not eo.draw then
       pcall(Objects.removeRuntimeObject, eo.id)
     end
   end

@@ -711,6 +711,14 @@ return function(mod)
       pcall(VisibleWild.update)
       return result
     end)
+    -- Also tick every frame: after a map load the first step can fail while
+    -- the map is still being adopted, and waiting for the next step would
+    -- leave the cave empty for seconds.
+    mod.hooks:wrap("render.zones", function(next, game, extra)
+      local result = next(game, extra)
+      pcall(VisibleWild.update)
+      return result
+    end)
     local okC, Collision = pcall(require, "src.core.game3.collision")
     if okC and Collision and type(Collision.canEnter) == "function"
         and not Collision._visibleWildWrapped then
