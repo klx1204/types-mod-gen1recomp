@@ -300,6 +300,21 @@ function VisibleWild.at(x, y)
   end
 end
 
+--- Remove runtime events this mod owns that lost their painter.  A stray one
+--- renders as graphics id 0, which is the player sprite, and cannot be
+--- interacted with - exactly what shows up after walking in and out of a cave
+--- a few times.
+function VisibleWild.sweep()
+  local Objects = rt("src.core.game3.objects")
+  if not (Objects and Objects.forDraw and Objects.removeRuntimeObject) then return end
+  for _, eo in ipairs(Objects.forDraw()) do
+    local def = eo.def
+    if def and def.owner == owner.modId and not eo.draw then
+      pcall(Objects.removeRuntimeObject, eo.id)
+    end
+  end
+end
+
 --- Called once per player step.
 function VisibleWild.update()
   local s = session()
@@ -359,15 +374,21 @@ function VisibleWild.update()
     end
   end
 
+  VisibleWild.sweep()
+
   if #entries < most and now() >= spawnAt then
     -- Walking into a map should show Pokemon straight away: fill the whole
     -- allowance on the first pass, then top up one every two seconds.
     local want = (#entries == 0) and most or 1
+    local spawned = false
     for _ = 1, want do
       if #entries >= most then break end
       if not spawnOne(game, mapId) then break end
+      spawned = true
     end
-    spawnAt = now() + SPAWN_SECONDS
+    -- Only start the two-second clock once something actually appeared; a
+    -- failed attempt (map still loading) retries on the next update.
+    if spawned then spawnAt = now() + SPAWN_SECONDS end
   end
 end
 
@@ -384,6 +405,7 @@ end
 
 function VisibleWild.setup(mod, opts)
   owner = {
+    modId = mod.id,
     world = mod.world,
     setting = opts.setting,
     isShiny = opts.isShiny,
