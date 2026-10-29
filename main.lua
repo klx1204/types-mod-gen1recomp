@@ -595,8 +595,23 @@ return function(mod)
   end)
 
   -- HMs without knowing the move: any healthy party member can act as the user.
+  -- Only the eight HMs are free.  Their job is to unblock progress, so a
+  -- party that never taught them should not get stuck.  Teleport, Dig,
+  -- Secret Power, Sweet Scent, Milk Drink and Softboiled stay locked behind
+  -- actually knowing the move.
+  local HM_MOVES = {
+    [15] = true,  -- CUT
+    [19] = true,  -- FLY
+    [57] = true,  -- SURF
+    [70] = true,  -- STRENGTH
+    [148] = true, -- FLASH
+    [249] = true, -- ROCK SMASH
+    [250] = true, -- WATERFALL
+    [291] = true, -- DIVE
+  }
   mod.hooks:wrap("fieldmove.eligibility", function(next, moveIdValue, ctx)
     if not flag("field_hms") then return next(moveIdValue, ctx) end
+    if not HM_MOVES[tonumber(moveIdValue)] then return next(moveIdValue, ctx) end
     for _, mon in ipairs((ctx and ctx.party) or {}) do
       if not mon.isEgg and not mon.egg and (tonumber(mon.hp) or 0) > 0 then
         return mon

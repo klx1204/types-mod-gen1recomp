@@ -38,7 +38,7 @@ mods/types_mod_gen1recomp/data/...
 | `BATTLE DATA` | `GEN9` / `VANILLA` |
 | `EXP FOR CATCHING` | `ON` / `OFF` |
 | `PARTY EXP SHARE` | `ON` / `OFF` |
-| `HMs WITHOUT MOVE` | `ON` / `OFF` |
+| `HMs WITHOUT MOVE` | `ON` / `OFF`（只放行 8 个秘传技；传送、挖洞、秘密之力、甜甜香气、牛奶喝、生蛋仍需学会） |
 | `INFINITE TMS` | `ON` / `OFF` |
 | `TRADE EVO LV. 40` | `ON` / `OFF` |
 | `ALWAYS CATCH` | `ON` / `OFF` |
