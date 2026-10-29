@@ -123,7 +123,13 @@ end
 local function wildGround(x, y)
   local E = rt("src.core.game3.encounters")
   if not (E and E.terrainAt) then return true end
-  local terrain = E.terrainAt(x, y)
+  local ok, terrain = pcall(E.terrainAt, x, y)
+  if not ok or terrain == nil then
+    -- Caves and a few indoor maps have no encounter-type table, so terrainAt
+    -- comes back nil on every tile.  Treat that as "anywhere walkable" rather
+    -- than spawning nothing at all.
+    return true
+  end
   return terrain == "land"
 end
 
@@ -203,6 +209,13 @@ local function attach(entry)
 end
 
 local function spawnOne(game, mapId)
+  -- Spawning before the map loader has adopted the map puts the event in the
+  -- foreign pool: Objects.find cannot see it, the painter never attaches and
+  -- it renders as graphics id 0 (the player).  Wait one frame instead.
+  local Objects = rt("src.core.game3.objects")
+  if Objects and Objects._mapId ~= nil and Objects._mapId ~= mapId then
+    return false
+  end
   local pick = pickSlot(mapId)
   if not pick then return false end
   local P = playerOf()
@@ -235,7 +248,7 @@ local function spawnOne(game, mapId)
             -- Without a painter the event falls back to graphics id 0, which
             -- is the player character in FireRed.  Drop it rather than let a
             -- Brendan clone wander the map.
-            removeEntry(entry)
+            removeEntry(entry, true)
             table.remove(entries)
             return false
           end
@@ -258,9 +271,16 @@ local function spawnOne(game, mapId)
   return false
 end
 
-local function removeEntry(entry)
-  if entry.npcId and owner.world and owner.world.removeNpc then
+local function removeEntry(entry, force)
+  if not (entry and entry.npcId) then return end
+  if owner.world and owner.world.removeNpc then
     pcall(function() owner.world:removeNpc(entry.npcId) end)
+  end
+  -- If the normal path left it behind (wrong pool, stale handle), remove the
+  -- runtime object directly so it cannot linger unpainted.
+  local Objects = rt("src.core.game3.objects")
+  if force and Objects and Objects.removeRuntimeObject then
+    pcall(Objects.removeRuntimeObject, entry.npcId)
   end
 end
 
@@ -300,7 +320,18 @@ function VisibleWild.update()
 
   for i = #entries, 1, -1 do
     local e = entries[i]
-    if not e.attached then attach(e) end
+    if not e.attached or not (e.eo and e.eo.draw) then
+      e.attached = nil
+      if attach(e) then
+        e.retry = nil
+      elseif e.retry then
+        -- Two frames without a handle: the event is stray, drop it.
+        removeEntry(e, true)
+        table.remove(entries, i)
+      else
+        e.retry = true
+      end
+    end
     if math.abs(e.cellX - px) > FORGET or math.abs(e.cellY - py) > FORGET then
       removeEntry(e)
       table.remove(entries, i)
