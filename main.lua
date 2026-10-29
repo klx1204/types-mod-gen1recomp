@@ -549,6 +549,7 @@ return function(mod)
     toggleRow("gen9_exp_share", "PARTY EXP SHARE", "exp_share")
     toggleRow("gen9_field_hms", "HMs WITHOUT MOVE", "field_hms")
     toggleRow("gen9_infinite_tms", "INFINITE TMS", "infinite_tms")
+    toggleRow("gen9_always_run", "ALWAYS RUNNING", "always_run")
     toggleRow("gen9_trade_evo", "TRADE EVO LV. 40", "trade_evo")
     toggleRow("gen9_always_catch", "ALWAYS CATCH", "always_catch")
     cycleRow("gen9_encounter_rate", "WILD ENCOUNTERS", "encounter_rate",
@@ -709,6 +710,10 @@ return function(mod)
     mod.hooks:wrap("input.step", function(next, game, dt)
       local result = next(game, dt)
       pcall(VisibleWild.update)
+      -- Held here so the engine's B-button check can be bypassed without a
+      -- new hook; canDash() still blocks it indoors.
+      local okP, Player = pcall(require, "src.core.game3.player")
+      if okP and Player then Player.alwaysRun = flag("always_run") end
       return result
     end)
     -- Also tick every frame: after a map load the first step can fail while
