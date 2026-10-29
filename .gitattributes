@@ -1,0 +1,6 @@
+/tests        export-ignore
+/tools        export-ignore
+/.github      export-ignore
+/dist         export-ignore
+/.gitignore   export-ignore
+/AGENTS.md    export-ignore
