@@ -51,6 +51,7 @@ move because the engine has no per-move category yet.
    - `EXP FOR CATCHING`, `PARTY EXP SHARE`, `HMs WITHOUT MOVE`, `INFINITE TMS`: `ON` / `OFF`
    - `TRADE EVO LV. 40`: `ON` / `OFF` — trade evolutions also happen on reaching Lv. 40
    - `ALWAYS CATCH`: `ON` / `OFF`
+   - `ALWAYS RUNNING`: `ON` / `OFF` — dash without holding B outdoors
    - `WILD ENCOUNTERS`: `NORMAL` / `OFF` / `1/4` / `1/2` / `2X`
    - `SHINY ODDS`: `1/8192` / `1/4096` / `1/1024` / `1/256` / `1/64` / `ALWAYS`
    - `VISIBLE WILD`: `OFF` / `FEW` / `SOME` / `MANY` — 0 / 2 / 4 / 6 roaming icons

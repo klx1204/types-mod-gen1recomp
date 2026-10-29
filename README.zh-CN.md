@@ -42,6 +42,7 @@ mods/types_mod_gen1recomp/data/...
 | `INFINITE TMS` | `ON` / `OFF` |
 | `TRADE EVO LV. 40` | `ON` / `OFF` |
 | `ALWAYS CATCH` | `ON` / `OFF` |
+| `ALWAYS RUNNING` | `ON` / `OFF` |
 | `WILD ENCOUNTERS` | `NORMAL` / `OFF` / `1/4` / `1/2` / `2X` |
 | `SHINY ODDS` | `1/8192` / `1/4096` / `1/1024` / `1/256` / `1/64` / `ALWAYS` |
 | `VISIBLE WILD` | `OFF` / `FEW` / `SOME` / `MANY` |
