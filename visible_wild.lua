@@ -331,6 +331,11 @@ function VisibleWild.most()
   return VisibleWild.count(owner.setting and owner.setting() or 1)
 end
 
+--- Live entries, for other systems that want their positions.
+function VisibleWild.all()
+  return entries
+end
+
 function VisibleWild.at(x, y)
   for _, e in ipairs(entries) do
     if e.cellX == x and e.cellY == y then return e end

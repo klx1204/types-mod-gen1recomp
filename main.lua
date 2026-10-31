@@ -724,6 +724,28 @@ return function(mod)
         return denom ~= nil and shinyRoll(denom)
       end,
     })
+    -- Let voxel_world_gen3 see the icons as wild Pokemon (it draws footprints
+    -- for kind = "wild_mon").  Wrapped before that mod loads, so its own
+    -- wrapper around collectActors sees the entries we add.
+    local okFX, FieldEffects = pcall(require, "src.core.game3.field_effects")
+    if okFX and FieldEffects and type(FieldEffects.collectActors) == "function"
+        and not FieldEffects._wildActorsWrapped then
+      FieldEffects._wildActorsWrapped = true
+      local originalCollect = FieldEffects.collectActors
+      FieldEffects.collectActors = function(list, camX, camY)
+        local result = originalCollect(list, camX, camY)
+        if type(list) == "table" then
+          for i, e in ipairs(VisibleWild.all()) do
+            list[#list + 1] = {
+              kind = "wild_mon", i = i,
+              x = (e.cellX or 0) * 16, y = (e.cellY or 0) * 16,
+            }
+          end
+        end
+        return result
+      end
+    end
+
     mod.hooks:wrap("input.step", function(next, game, dt)
       local result = next(game, dt)
       pcall(VisibleWild.update)
