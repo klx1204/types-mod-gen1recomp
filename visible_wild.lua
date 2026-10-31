@@ -384,10 +384,14 @@ function VisibleWild.update()
       local t = math.min(1, e.progress)
       e.px = e.fromX + (e.targetPx - e.fromX) * t
       e.py = e.fromY + (e.targetPy - e.fromY) * t
-      if e.eo then e.eo.px, e.eo.py = e.px, e.py end
+      if e.eo then
+        e.eo.px, e.eo.py = e.px, e.py
+        e.eo.moving = true
+      end
       if t >= 1 then
         e.moving = false
         e.px, e.py = e.targetPx, e.targetPy
+        if e.eo then e.eo.moving = false end
       end
     end
     if not e.attached or not (e.eo and e.eo.draw) then
