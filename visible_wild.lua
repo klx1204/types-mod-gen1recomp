@@ -519,6 +519,9 @@ local function advanceEncounter(entry, game, px, py)
     end
     removeEntry(entry)
     if busyEntry == entry then busyEntry = nil end
+    -- The spec's two-second refill: a battled mon is gone, and the map does
+    -- not refill on the same frame.
+    spawnAt = now() + SPAWN_SECONDS
     return true
   end
   if owner.log then
@@ -698,13 +701,20 @@ end
 
 function removeEntry(entry, force)
   if not (entry and entry.npcId) then return end
-  if owner.world and owner.world.removeNpc then
-    pcall(function() owner.world:removeNpc(entry.npcId) end)
-  end
-  -- If the normal path left it behind (wrong pool, stale handle), remove the
-  -- runtime object directly so it cannot linger unpainted.
   local Objects = rt("src.core.game3.objects")
-  if force and Objects and Objects.removeRuntimeObject then
+  local removed = false
+  -- The world API refuses while something else owns the field (starting a
+  -- battle is one of those moments), so fall through to the object pool and
+  -- take the event out directly.  It is our own runtime object either way.
+  if owner.world and owner.world.removeNpc then
+    local okR, r1, r2 = pcall(owner.world.removeNpc, owner.world, entry.npcId)
+    removed = okR and r1 ~= nil
+    if not removed and owner.log then
+      owner.log:info("VWLOG removeNpc %s refused (%s), removing directly",
+        tostring(entry.npcId), tostring(r2 or r1))
+    end
+  end
+  if not removed and Objects and Objects.removeRuntimeObject then
     pcall(Objects.removeRuntimeObject, entry.npcId)
   end
 end
@@ -782,6 +792,9 @@ function VisibleWild.update()
   if mapId ~= currentMap then
     currentMap = mapId
     VisibleWild.clear()
+    if owner.log and mapId then
+      owner.log:info("visible wild: map %s", tostring(mapId))
+    end
   end
   local most = VisibleWild.most()
   if most <= 0 or not mapId then
