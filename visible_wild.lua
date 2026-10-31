@@ -327,6 +327,9 @@ local function startStep(entry, dx, dy, speed)
   local tx, ty = entry.cellX + dx, entry.cellY + dy
   local fromX = entry.px or (entry.cellX * 16)
   local fromY = entry.py or (entry.cellY * 16)
+  -- pokeemerald checks currentCoords and previousCoords when it looks for a
+  -- collision, so the cell a mon is stepping off still counts while it moves.
+  entry.prevX, entry.prevY = entry.cellX, entry.cellY
   entry.cellX, entry.cellY = tx, ty
   setFacing(entry, (dx > 0 and "right") or (dx < 0 and "left")
     or (dy > 0 and "down") or "up")
@@ -344,8 +347,32 @@ local function startStep(entry, dx, dy, speed)
   end
 end
 
+--- The cells the player occupies: where it stands, and where it is stepping.
+local function playerCells(P)
+  local cells = {}
+  if not (P and P.cellX and P.cellY) then return cells end
+  cells[1] = { P.cellX, P.cellY }
+  if P.moving and P.targetX and P.targetY then
+    cells[2] = { P.targetX, P.targetY }
+  end
+  return cells
+end
+
+local function touchesPlayer(cells, x, y)
+  for _, c in ipairs(cells) do
+    if c[1] == x and c[2] == y then return true end
+  end
+  return false
+end
+
 local function tryStep(game, entry, dx, dy, speed, px, py)
   local tx, ty = entry.cellX + dx, entry.cellY + dy
+  -- Walking into the player is the collision that starts the battle, no
+  -- matter which side moved first (expansion triggers from both).
+  if touchesPlayer(playerCells(playerOf()), tx, ty) then
+    VisibleWild.beginEncounter(entry)
+    return false
+  end
   if not canStand(game, entry, tx, ty, px, py) then return false end
   startStep(entry, dx, dy, speed)
   return true
@@ -742,6 +769,14 @@ end
 function VisibleWild.at(x, y)
   for _, e in ipairs(entries) do
     if e.cellX == x and e.cellY == y then return e end
+    if e.moving and e.prevX == x and e.prevY == y then return e end
+  end
+end
+
+--- The entry that belongs to a runtime object, for interaction hooks.
+function VisibleWild.byLocalId(localId)
+  for _, e in ipairs(entries) do
+    if e.localId == localId then return e end
   end
 end
 
@@ -821,6 +856,7 @@ function VisibleWild.update()
       if e.eo then e.eo.px, e.eo.py = e.px, e.py end
       if t >= 1 then
         e.moving = false
+        e.prevX, e.prevY = nil, nil
         e.px, e.py = e.targetPx, e.targetPy
         if e.eo then e.eo.px, e.eo.py = e.px, e.py end
         if not e.active and not e.phase then
@@ -880,6 +916,25 @@ function VisibleWild.update()
     -- Only start the two-second clock once something actually appeared; a
     -- failed attempt (map still loading) retries on the next update.
     if spawned then spawnAt = now() + SPAWN_SECONDS end
+  end
+end
+
+--- An NPC walked into this mon.  Expansion removes a generated OWE instead
+--- of letting it block the NPC, so the same happens here.
+function VisibleWild.bump(entry)
+  if not entry then return end
+  for i, e in ipairs(entries) do
+    if e == entry then
+      if owner.log then
+        owner.log:info("VWLOG bumped away %s lv%d at %d,%d", tostring(e.species),
+          e.level, e.cellX, e.cellY)
+      end
+      removeEntry(e)
+      table.remove(entries, i)
+      if busyEntry == e then busyEntry = nil end
+      spawnAt = now() + SPAWN_SECONDS
+      return
+    end
   end
 end
 

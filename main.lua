@@ -833,6 +833,38 @@ return function(mod)
         return originalCanEnter(game, x, y, opts, ...)
       end
     end
+
+    -- Pressing A while facing a mon starts the same encounter: expansion's
+    -- GetOverworlWildEncounterScript hands the interaction to the OWE script.
+    -- world.talk is the engine's existing A-on-an-NPC hook; not calling the
+    -- fallthrough also keeps the "nothing here" message from appearing.
+    mod.hooks:wrap("world.talk", function(next, game, eo)
+      local entry = eo and eo.localId and VisibleWild.byLocalId(eo.localId)
+      if entry then
+        VisibleWild.beginEncounter(entry)
+        return true
+      end
+      return next(game, eo)
+    end)
+
+    -- An NPC walking into a mon pushes it off the map instead of being
+    -- blocked (DespawnOWEDueToNPCCollision).  NPC steps go through
+    -- Objects.blocks with their own localId; the player's checks pass nil.
+    local okO, Objects = pcall(require, "src.core.game3.objects")
+    if okO and Objects and type(Objects.blocks) == "function"
+        and not Objects._visibleWildBlocks then
+      Objects._visibleWildBlocks = true
+      local originalBlocks = Objects.blocks
+      Objects.blocks = function(tx, ty, exceptLocalId, elevation)
+        if exceptLocalId and not Objects.isPlayer(exceptLocalId) then
+          local entry = VisibleWild.at(tx, ty)
+          if entry and entry.localId ~= exceptLocalId then
+            VisibleWild.bump(entry)
+          end
+        end
+        return originalBlocks(tx, ty, exceptLocalId, elevation)
+      end
+    end
   end
 
   -- Apply the saved mode once the engine has a save and a dataset.  This  -- runs for VANILLA too: registering FAIRY in type_chart makes the loader
