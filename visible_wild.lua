@@ -190,16 +190,21 @@ end
 -- Spawning and wandering both stay on tiles the map lists as wild ground, so
 -- an icon never stands on a path or a rooftop.
 local function wildGround(x, y)
+  local C = rt("src.core.game3.collision")
+  if C and C.isWater and C.isWater(x, y) then return false end
   local E = rt("src.core.game3.encounters")
-  if not (E and E.terrainAt) then return true end
+  if not (E and E.terrainAt) then return C and C.isGrass and C.isGrass(x, y) or false end
   local ok, terrain = pcall(E.terrainAt, x, y)
-  if not ok or terrain == nil then
-    -- Caves and a few indoor maps have no encounter-type table, so terrainAt
-    -- comes back nil on every tile.  Treat that as "anywhere walkable" rather
-    -- than spawning nothing at all.
-    return true
-  end
-  return terrain == "land"
+  if ok and terrain == "land" then return true end
+  if ok and terrain == "water" then return false end
+  -- terrainAt is nil when this metatile is not an encounter tile (a path, a
+  -- floor tile) -- spawning there put wild Pokemon on roads.  Only a map that
+  -- has no encounter table at all falls back to "any walkable, non-water tile".
+  local s = session()
+  local mapId = s and s.map
+  local table_ = mapId and E.tableFor and E.tableFor(mapId) or nil
+  if table_ then return false end
+  return true
 end
 
 -- Overworld sheets shipped with the mod: 192x32, six 32x32 frames
@@ -340,6 +345,12 @@ local function canStand(game, entry, tx, ty, px, py)
   if tx == px and ty == py then return false end
   if occupied(tx, ty) then return false end
   if not wildGround(tx, ty) then return false end
+  -- WE_OWE_RESTRICT_METATILE: a mon stays on the kind of tile it spawned on,
+  -- so a tall-grass encounter never wanders out onto the path or the water.
+  if entry.terrain ~= nil then
+    local C = rt("src.core.game3.collision")
+    if C and C.behavior and C.behavior(tx, ty) ~= entry.terrain then return false end
+  end
   return passable(game, tx, ty, entry.cellX, entry.cellY)
 end
 
@@ -733,6 +744,8 @@ local function spawnOne(game, mapId)
           local entry = {
             uid = uid, npcId = id, species = pick.species, level = pick.level,
             cellX = x, cellY = y, facing = "down",
+            terrain = (rt("src.core.game3.collision") or {}).behavior
+              and rt("src.core.game3.collision").behavior(x, y) or nil,
             px = x * 16, py = y * 16,
             nextMoveAt = now() + IDLE_MIN + math.random() * (IDLE_MAX - IDLE_MIN),
             localId = added and added.localId or nil,
@@ -931,7 +944,7 @@ function VisibleWild.update()
     end
     if (e.phase and not e.vanishAt) or (busyEntry == e and not e.vanishAt) then
       if advanceEncounter(e, game, px, py) then table.remove(entries, i) end
-    elseif math.abs(e.cellX - px) > FORGET or math.abs(e.cellY - py) > FORGET then
+    elseif not e.shiny and (math.abs(e.cellX - px) > FORGET or math.abs(e.cellY - py) > FORGET) then
       if owner.log then
         owner.log:info("VWLOG forget %s lv%d at %d,%d (player %d,%d)",
           tostring(e.species), e.level, e.cellX, e.cellY, px, py)
