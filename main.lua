@@ -742,7 +742,10 @@ return function(mod)
         end
         -- Same personality and gender the icon was rolled with, and the same
         -- shiny decision.
-        local extra = { personality = entry.pid }
+        -- Let the battle music start when the battle screen draws instead of
+        -- on the first frame of the transition: the transition here still
+        -- shows the field for two seconds, and the song ran ahead of it.
+        local extra = { personality = entry.pid, songAtStart = true }
         if entry.gender == "M" or entry.gender == "F" then extra.gender = entry.gender end
         pendingShiny = entry.shiny and true or false
         local ok, err = mod.world:startWildBattle(key, entry.level, extra)

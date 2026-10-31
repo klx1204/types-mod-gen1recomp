@@ -514,8 +514,9 @@ local function advanceEncounter(entry, game, px, py)
   end
   if ok then
     if owner.log then
-      owner.log:info("VWLOG battle %s dex %s lv%d at %d,%d", tostring(entry.species),
-        tostring(entry.dex), entry.level, entry.cellX, entry.cellY)
+      owner.log:info("VWLOG battle %s dex %s lv%d at %d,%d after %.2fs", tostring(entry.species),
+        tostring(entry.dex), entry.level, entry.cellX, entry.cellY,
+        now() - (entry.encounterAt or now()))
     end
     removeEntry(entry)
     if busyEntry == entry then busyEntry = nil end
@@ -769,6 +770,7 @@ function VisibleWild.beginEncounter(entry)
   if P and P.cellX then faceTowards(entry, P.cellX, P.cellY) end
   busyEntry = entry
   entry.phase, entry.phaseAt = "notice", now()
+  entry.encounterAt = now()
   entry.active = false
   setFieldLocked(entry, true)
   playEmote(entry)
