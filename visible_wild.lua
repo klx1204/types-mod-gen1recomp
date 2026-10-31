@@ -842,26 +842,32 @@ local function spawnOne(game, mapId)
   if not (P and P.cellX) then return false end
   local px, py = P.cellX, P.cellY
   local nearest = (kind == "land") and NEAREST or WATER_NEAREST
-  for _ = 1, 60 do
-    local dx = math.random(-RANGE_X, RANGE_X)
-    local dy = math.random(-RANGE_Y, RANGE_Y)
-    if math.abs(dx) >= nearest or math.abs(dy) >= nearest then
-      local x, y = px + dx, py + dy
-      local C2 = rt("src.core.game3.collision")
-      local elev = 3
-      if kind ~= "land" and C2 and C2.elevationAt then elev = C2.elevationAt(x, y) or 1 end
-      if not occupied(x, y) and wildGround(x, y, kind) and passable(game, x, y, px, py, elev) then
+  -- Every legal cell in the window, then one at random.  Picking 60 random
+  -- cells missed the whole window when only a couple are legal (underwater
+  -- corridors are two tiles wide), which looked like "nothing ever spawns".
+  local spots = {}
+  for cy = py - RANGE_Y, py + RANGE_Y do
+    for cx = px - RANGE_X, px + RANGE_X do
+      local d = math.max(math.abs(cx - px), math.abs(cy - py))
+      if d >= nearest and not occupied(cx, cy) then
         local C = rt("src.core.game3.collision")
-        local elevation = 3
-        if kind ~= "land" and C and C.elevationAt then
-          elevation = C.elevationAt(x, y) or 1
+        local elev = 3
+        if kind ~= "land" and C and C.elevationAt then elev = C.elevationAt(cx, cy) or 1 end
+        if wildGround(cx, cy, kind) and passable(game, cx, cy, px, py, elev) then
+          spots[#spots + 1] = { x = cx, y = cy, elevation = elev }
         end
-        local id = owner.world:spawnNpc(mapId, {
-          x = x, y = y, elevation = elevation, facing = "down",
-          movementType = 0, graphicsId = 0,
-          wildIcon = true,
-        })
-        if id then
+      end
+    end
+  end
+  if #spots == 0 then return false end
+  local chosen = spots[math.random(#spots)]
+  local x, y, elevation = chosen.x, chosen.y, chosen.elevation
+  local id = owner.world:spawnNpc(mapId, {
+    x = x, y = y, elevation = elevation, facing = "down",
+    movementType = 0, graphicsId = 0,
+    wildIcon = true,
+  })
+  if id then
           local Objects = rt("src.core.game3.objects")
           local defs = Objects and Objects.runtimeByMap and Objects.runtimeByMap[mapId]
           local added = defs and defs[#defs]
@@ -922,9 +928,6 @@ local function spawnOne(game, mapId)
           end
           return true
         end
-      end
-    end
-  end
   return false
 end
 
@@ -1154,7 +1157,13 @@ function VisibleWild.update()
   if #entries < most and now() >= spawnAt then
     -- One at a time, on expansion's ramp: an empty map fills quickly, a busy
     -- one slowly.  A failed attempt (map still loading) retries next update.
-    if spawnOne(game, mapId) then spawnAt = now() + refillDelay() end
+    if spawnOne(game, mapId) then
+      spawnAt = now() + refillDelay()
+    else
+      -- No legal tile right now (underwater corridors, a full window): try
+      -- again shortly instead of every frame.
+      spawnAt = now() + 0.25
+    end
   end
 end
 
