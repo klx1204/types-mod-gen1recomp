@@ -492,10 +492,12 @@ end
 local function tryStep(game, entry, dx, dy, speed, px, py)
   local tx, ty = entry.cellX + dx, entry.cellY + dy
   -- Walking into the player is the collision that starts the battle, no
-  -- matter which side moved first (expansion triggers from both).
+  -- matter which side moved first (expansion triggers from both).  Report
+  -- the step as consumed: the wander/chase loops would otherwise try the
+  -- next direction and the mon would sidestep while its "!" is already up.
   if touchesPlayer(playerCells(playerOf()), tx, ty) then
     VisibleWild.beginEncounter(entry)
-    return false
+    return true
   end
   if not canStand(game, entry, tx, ty, px, py) then return false end
   startStep(entry, dx, dy, speed)
