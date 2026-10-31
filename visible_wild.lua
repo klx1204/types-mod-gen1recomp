@@ -155,6 +155,12 @@ local function owImage(species)
   if not cache then cache = {}; owner.owCache = cache end
   local id = tonumber(species)
   if not id then return nil end
+  -- Encounter slots carry the game's internal species id.  The sheets are
+  -- filed by national dex number (Rahtak's folders are named that way), so a
+  -- raw id picks the wrong Pokemon: internal 318 is Baltoy, national 318 is
+  -- Carvanha.
+  local Pm = rt("src.core.game3.pokemon")
+  if Pm and Pm.national then id = Pm.national(id) or id end
   local hit = cache[id]
   if hit ~= nil then return hit or nil end
   if owner.owList and not owner.owList[id] then cache[id] = false; return nil end
@@ -303,8 +309,10 @@ local function spawnOne(game, mapId)
             end
           end
           if owner.log then
-            owner.log:info("visible wild: %s lv%d at %d,%d (npc %s, def %s)",
-              tostring(pick.species), pick.level, x, y, tostring(id), tostring(added and added.localId))
+            local Pm = rt("src.core.game3.pokemon")
+            local nat = Pm and Pm.national and Pm.national(pick.species) or pick.species
+            owner.log:info("visible wild: internal %s (dex %s) lv%d at %d,%d (npc %s)",
+              tostring(pick.species), tostring(nat), pick.level, x, y, tostring(added and added.localId))
           end
           return true
         end
@@ -412,6 +420,10 @@ function VisibleWild.update()
       end
     end
     if math.abs(e.cellX - px) > FORGET or math.abs(e.cellY - py) > FORGET then
+      if owner.log then
+        owner.log:info("VWLOG forget %s lv%d at %d,%d (player %d,%d)",
+          tostring(e.species), e.level, e.cellX, e.cellY, px, py)
+      end
       removeEntry(e)
       table.remove(entries, i)
     elseif e.moving then
@@ -437,6 +449,10 @@ function VisibleWild.update()
           e.targetPx, e.targetPy = tx * 16, ty * 16
           e.moveStart = now()
           e.moving = true
+          if owner.log then
+            owner.log:info("VWLOG move %s lv%d %d,%d -> %d,%d",
+              tostring(e.species), e.level, fromX / 16, fromY / 16, tx, ty)
+          end
           if e.def then e.def.x, e.def.y = tx, ty end
           if e.eo then
             e.eo.x, e.eo.y = tx * 16, ty * 16

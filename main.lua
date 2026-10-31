@@ -780,6 +780,14 @@ return function(mod)
       Collision.canEnter = function(game, x, y, opts, ...)
         local entry = VisibleWild.at(x, y)
         if entry then
+          -- VWLOG: what the player actually bumped into, and the species the
+          -- battle will use.  If these disagree with the sprite on screen the
+          -- entry cell and the drawn object have drifted apart.
+          local Pm = pcall(require, "src.core.game3.pokemon") and require("src.core.game3.pokemon")
+          mod.log:info("VWLOG encounter cell %d,%d -> internal %s dex %s lv%d", x, y,
+            tostring(entry.species),
+            tostring(Pm and Pm.national and Pm.national(entry.species) or "?"),
+            entry.level)
           VisibleWild.remove(entry)
           -- The ROM key, not the localized display name: the battle API
           -- resolves species by the English constant.
