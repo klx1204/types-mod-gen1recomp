@@ -79,6 +79,12 @@ and 64-128 frames (1.07-2.13 s) standing still, and the wander never turns
 A mon's personality, gender and shiny bit are rolled when it spawns and the
 battle reuses them, so a sparkling icon fights as a shiny.
 
+Surfing uses the map's water table and spawns on the water itself (at least
+three tiles away, with a splash), diving uses the underwater maps, and water
+encounters leave when you come ashore. A Repel keeps anything below the lead's
+level from appearing and clears what is already out there, and the overworld's
+ambient cry comes from one of the visible mons when there is one.
+
 `data/owe_behavior.lua` assigns behaviours per species, matching expansion's
 `gOWESpeciesBehavior`: `ignore` (default, wander), `chase` (run the player
 down; bumping into you starts the battle), `flee`, `watch`, `approach` (close

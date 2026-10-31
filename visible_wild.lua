@@ -42,6 +42,10 @@ local FLEE_GIVE_UP = 8               -- blocked steps before a cornered flee des
 -- Spawn/despawn: a short rise out of the ground and a sink back into it.
 local APPEAR_SECONDS = 0.2
 local VANISH_SECONDS = 0.2
+-- OWE_SPAWN_DISTANCE_WATER: three tiles away while riding the water.
+local WATER_NEAREST = 3
+-- APPROACH_PLAYER_OWE's excited hop
+local HOP_SECONDS = 0.3
 
 -- --- Behaviour table ------------------------------------------------------
 -- gOWESpeciesBehavior in src/data/pokemon/wild_encounter_ow_behavior.h.
@@ -121,17 +125,27 @@ local function speciesIdOf(value)
 end
 
 --- One slot of the map's land table, weighed like the game weighs it.
-local function pickSlot(mapId)
+local function pickSlot(mapId, kind)
   local E = rt("src.core.game3.encounters")
   local t = E and E.tableFor and E.tableFor(mapId)
   if type(t) ~= "table" then return nil end
-  local area = t.land or t.grass
+  local area
+  if kind == "water" or kind == "underwater" then
+    area = t.water
+  else
+    area = t.land or t.grass
+  end
   local slots = type(area) == "table" and (area.slots or area.mons or area) or nil
   if type(slots) ~= "table" or #slots == 0 then return nil end
   -- pret's land slot percentages: 20,20,10,10,10,10,5,5,4,4,1,1.  Without
   -- them every slot is equally likely and the 1% species turn up as often as
   -- the common ones.
-  local weights = E.LAND_WEIGHTS or { 20, 20, 10, 10, 10, 10, 5, 5, 4, 4, 1, 1 }
+  local weights
+  if kind == "water" or kind == "underwater" then
+    weights = (E._h and E._h.WATER_WEIGHTS) or { 60, 30, 5, 4, 1 }
+  else
+    weights = E.LAND_WEIGHTS or { 20, 20, 10, 10, 10, 10, 5, 5, 4, 4, 1, 1 }
+  end
   local function slotWeight(i, e)
     return tonumber(e.weight) or tonumber(e.chance) or weights[i] or 1
   end
@@ -167,6 +181,14 @@ local function pickSlot(mapId)
   return nil
 end
 
+--- What the player is riding decides which table and which tiles are in play.
+local function spawnKind()
+  local P = playerOf()
+  if P and P.underwater then return "underwater" end
+  if P and P.surfing then return "water" end
+  return "land"
+end
+
 local function occupied(x, y)
   for _, e in ipairs(entries) do
     if e.cellX == x and e.cellY == y then return true end
@@ -174,7 +196,7 @@ local function occupied(x, y)
   return false
 end
 
-local function passable(game, x, y, fromX, fromY)
+local function passable(game, x, y, fromX, fromY, elevation)
   local C = rt("src.core.game3.collision")
   if C and C.canEnter then
     local dx = x - (fromX or x)
@@ -186,7 +208,7 @@ local function passable(game, x, y, fromX, fromY)
     steppingMon = true
     local ok = C.canEnter(game, x, y, {
       fromX = fromX or x, fromY = fromY or y, dir = dir,
-      elevation = 3,
+      elevation = elevation or 3,
     })
     steppingMon = false
     if ok == false then return false end
@@ -202,8 +224,16 @@ end
 
 -- Spawning and wandering both stay on tiles the map lists as wild ground, so
 -- an icon never stands on a path or a rooftop.
-local function wildGround(x, y)
+local function wildGround(x, y, kind)
   local C = rt("src.core.game3.collision")
+  if kind == "underwater" then
+    -- underwater maps have no water metatiles; the sea floor is ordinary
+    -- walkable geometry
+    return (C and C.isWalkable and C.isWalkable(x, y)) or false
+  end
+  if kind == "water" then
+    return (C and C.isWater and C.isWater(x, y)) or false
+  end
   if C and C.isWater and C.isWater(x, y) then return false end
   local E = rt("src.core.game3.encounters")
   if not (E and E.terrainAt) then return C and C.isGrass and C.isGrass(x, y) or false end
@@ -277,6 +307,10 @@ local function painter(entry)
       sink = math.min(1, (now() - entry.vanishAt) / VANISH_SECONDS)
     end
     local yOff = (1 - rise) * 6 + sink * 6
+    if entry.hopStart then
+      local h = (now() - entry.hopStart) / HOP_SECONDS
+      if h > 0 and h < 1 then yOff = yOff - math.sin(h * math.pi) * 6 end
+    end
     local alpha = rise * (1 - sink)
     local SX = (self.x or 0) - (camX or 0) - 8
     local SY = (self.y or 0) - (camY or 0) - 16 + yOff
@@ -356,15 +390,18 @@ end
 
 local function canStand(game, entry, tx, ty, px, py)
   if tx == px and ty == py then return false end
+  -- WE_OWE_RESTRICT_MAP: never step off the current map.
+  local C0 = rt("src.core.game3.collision")
+  if C0 and C0.inBounds and not C0.inBounds(tx, ty) then return false end
   if occupied(tx, ty) then return false end
-  if not wildGround(tx, ty) then return false end
+  if not wildGround(tx, ty, entry.kind) then return false end
   -- WE_OWE_RESTRICT_METATILE: a mon stays on the kind of tile it spawned on,
   -- so a tall-grass encounter never wanders out onto the path or the water.
   if entry.terrain ~= nil then
     local C = rt("src.core.game3.collision")
     if C and C.behavior and C.behavior(tx, ty) ~= entry.terrain then return false end
   end
-  return passable(game, tx, ty, entry.cellX, entry.cellY)
+  return passable(game, tx, ty, entry.cellX, entry.cellY, entry.elevation)
 end
 
 local function startStep(entry, dx, dy, speed)
@@ -446,8 +483,60 @@ local function wanderStep(game, entry, px, py)
   return false
 end
 
+--- Breadth-first search for the first step of a path that goes around
+--- whatever blocks the direct line.  Goals are the cells we want to reach;
+--- walls, water and other mons are skipped.
+local function bfsPath(startX, startY, goals, isFree, maxNodes)
+  local key = function(x, y) return x .. "," .. y end
+  local goal = {}
+  for _, c in ipairs(goals) do goal[key(c[1], c[2])] = true end
+  local queue = { { startX, startY } }
+  local seen = { [key(startX, startY)] = true }
+  local prev = {}
+  local head, nodes = 1, 0
+  local DIRS4 = { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } }
+  while head <= #queue and nodes < maxNodes do
+    local cur = queue[head]; head = head + 1; nodes = nodes + 1
+    for _, d in ipairs(DIRS4) do
+      local nx, ny = cur[1] + d[1], cur[2] + d[2]
+      local k = key(nx, ny)
+      if not seen[k] then
+        local isGoal = goal[k] == true
+        if isGoal or isFree(nx, ny) then
+          seen[k] = true
+          prev[k] = key(cur[1], cur[2])
+          if isGoal then
+            local path, c = { k }, k
+            while prev[c] do c = prev[c]; table.insert(path, 1, c) end
+            local step = path[2] or path[1]
+            local fx, fy = step:match("(-?%d+),(-?%d+)")
+            if fx then return tonumber(fx) - startX, tonumber(fy) - startY end
+            return nil
+          end
+          queue[#queue + 1] = { nx, ny }
+        end
+      end
+    end
+  end
+  return nil
+end
+
+VisibleWild._bfsPath = bfsPath
+
+local function bfsStep(game, entry, goals, px, py, maxNodes)
+  return bfsPath(entry.cellX, entry.cellY, goals,
+    function(x, y) return canStand(game, entry, x, y, px, py) end, maxNodes)
+end
+
+local function adjacentCells(px, py)
+  return {
+    { px, py - 1 }, { px, py + 1 }, { px - 1, py }, { px + 1, py },
+  }
+end
+
 --- Chase / flee / approach all reduce or grow the distance one tile at a
---- time, preferring the longer axis and falling back to the other one.
+--- time, preferring the longer axis; chase and approach walk the long way
+--- round when the direct step is blocked.
 local function stepTowards(game, entry, px, py, speed, away)
   local dx, dy = px - entry.cellX, py - entry.cellY
   if away then dx, dy = -dx, -dy end
@@ -462,6 +551,17 @@ local function stepTowards(game, entry, px, py, speed, away)
   end
   for _, d in ipairs(order) do
     if tryStep(game, entry, d.dx, d.dy, speed, px, py) then return true end
+  end
+  if away then return false end
+  -- Blocked: look for a way round (walls, water, other mons).
+  local goals = (distToPlayer(entry, px, py) > 1) and { { px, py } } or adjacentCells(px, py)
+  local sdx, sdy = bfsStep(game, entry, goals, px, py, 96)
+  if sdx and sdy then
+    if owner.log then
+      owner.log:info("VWLOG pathfind %s at %d,%d step %d,%d", tostring(entry.species),
+        entry.cellX, entry.cellY, sdx, sdy)
+    end
+    return tryStep(game, entry, sdx, sdy, speed, px, py)
   end
   return false
 end
@@ -538,7 +638,9 @@ local function finishEncounter(entry, failed)
   entry.phase = nil
   if busyEntry == entry then busyEntry = nil end
   if failed then
-    -- The battle never started: keep the mon rather than deleting it.
+    -- The battle never started: keep the mon rather than deleting it, and
+    -- do not try again immediately (the field may still be busy).
+    entry.battleCooldown = now() + 2
     entry.nextMoveAt = now() + 2
   end
 end
@@ -691,10 +793,17 @@ local function stepBehaviour(entry, game, px, py, P)
     entry.nextMoveAt = now() + 0.08
     return
   end
-  -- approach: keep one tile of distance, face the player otherwise
+  -- approach: keep one tile of distance, face the player otherwise, and hop
+  -- now and then like an excited wild mon
   if distToPlayer(entry, px, py) <= 1 then
     faceTowards(entry, px, py)
-    entry.nextMoveAt = now() + 0.3
+    if not entry.hopStart and math.random(5) == 1 then
+      entry.hopStart = now()
+      if owner.log then
+        owner.log:info("VWLOG hop %s at %d,%d", tostring(entry.species), entry.cellX, entry.cellY)
+      end
+    end
+    entry.nextMoveAt = now() + 0.6
   elseif stepTowards(game, entry, px, py, b.activeSpeed, false) then
     entry.nextMoveAt = now() + 0.08
   else
@@ -711,27 +820,44 @@ local function spawnOne(game, mapId)
   if Objects and Objects._mapId ~= nil and Objects._mapId ~= mapId then
     return false
   end
+  local kind = spawnKind()
   local pick, roamerMon
-  if owner.roamerFor then
+  if kind == "land" and owner.roamerFor then
     local okR, mon = pcall(owner.roamerFor, mapId)
     if okR and type(mon) == "table" then
       pick = { species = mon.species, level = mon.level }
       roamerMon = mon
     end
   end
-  pick = pick or pickSlot(mapId)
+  pick = pick or pickSlot(mapId, kind)
   if not pick then return false end
+  -- Wild Repel: a mon below the lead's level never appears (and existing ones
+  -- are cleared in update).
+  local H = (rt("src.core.game3.encounters") or {})._h
+  if H and H.repel_active and H.repel_active() and H.wild_level_allowed_by_repel
+      and not H.wild_level_allowed_by_repel(pick.level) then
+    return false
+  end
   local P = playerOf()
   if not (P and P.cellX) then return false end
   local px, py = P.cellX, P.cellY
-  for _ = 1, 40 do
+  local nearest = (kind == "land") and NEAREST or WATER_NEAREST
+  for _ = 1, 60 do
     local dx = math.random(-RANGE_X, RANGE_X)
     local dy = math.random(-RANGE_Y, RANGE_Y)
-    if math.abs(dx) >= NEAREST or math.abs(dy) >= NEAREST then
+    if math.abs(dx) >= nearest or math.abs(dy) >= nearest then
       local x, y = px + dx, py + dy
-      if not occupied(x, y) and wildGround(x, y) and passable(game, x, y, px, py) then
+      local C2 = rt("src.core.game3.collision")
+      local elev = 3
+      if kind ~= "land" and C2 and C2.elevationAt then elev = C2.elevationAt(x, y) or 1 end
+      if not occupied(x, y) and wildGround(x, y, kind) and passable(game, x, y, px, py, elev) then
+        local C = rt("src.core.game3.collision")
+        local elevation = 3
+        if kind ~= "land" and C and C.elevationAt then
+          elevation = C.elevationAt(x, y) or 1
+        end
         local id = owner.world:spawnNpc(mapId, {
-          x = x, y = y, elevation = 3, facing = "down",
+          x = x, y = y, elevation = elevation, facing = "down",
           movementType = 0, graphicsId = 0,
           wildIcon = true,
         })
@@ -756,7 +882,7 @@ local function spawnOne(game, mapId)
           end
           local entry = {
             uid = uid, npcId = id, species = pick.species, level = pick.level,
-            cellX = x, cellY = y, facing = "down",
+            cellX = x, cellY = y, facing = "down", kind = kind, elevation = elevation,
             terrain = (rt("src.core.game3.collision") or {}).behavior
               and rt("src.core.game3.collision").behavior(x, y) or nil,
             px = x * 16, py = y * 16,
@@ -790,8 +916,8 @@ local function spawnOne(game, mapId)
             end
           end
           if owner.log then
-            owner.log:info("visible wild: internal %s (dex %s) lv%d at %d,%d (npc %s, %s)",
-              tostring(pick.species), tostring(entry.dex), pick.level, x, y,
+            owner.log:info("visible wild: internal %s (dex %s) lv%d at %d,%d (%s, npc %s, %s)",
+              tostring(pick.species), tostring(entry.dex), pick.level, x, y, kind,
               tostring(added and added.localId), behaviour)
           end
           return true
@@ -875,6 +1001,10 @@ end
 function VisibleWild.beginEncounter(entry)
   if not entry then return false end
   if entry.phase then return true end
+  -- A battle already running means the field is not ours to lock.
+  if entry.battleCooldown and now() < entry.battleCooldown then return true end
+  local okB, Battle = pcall(require, "src.core.game3.battle")
+  if okB and Battle and Battle.isActive and Battle.isActive() then return true end
   if busyEntry and busyEntry ~= entry then return true end
   local P = playerOf()
   if P and P.cellX then faceTowards(entry, P.cellX, P.cellY) end
@@ -891,6 +1021,22 @@ function VisibleWild.beginEncounter(entry)
       tostring(P and P.cellX), tostring(P and P.cellY), tostring(entry.facing))
   end
   return true
+end
+
+--- A mon the ambient-cry task can borrow its voice from: on screen and not
+--- already leaving.
+function VisibleWild.cryCandidate()
+  local P = playerOf()
+  if not (P and P.cellX) then return nil end
+  local pool = {}
+  for _, e in ipairs(entries) do
+    if not e.vanishAt and math.abs(e.cellX - P.cellX) <= 10
+        and math.abs(e.cellY - P.cellY) <= 8 then
+      pool[#pool + 1] = e
+    end
+  end
+  if #pool == 0 then return nil end
+  return pool[math.random(#pool)]
 end
 
 function VisibleWild.isBusy()
@@ -918,9 +1064,33 @@ function VisibleWild.update()
   local game = currentGame()
   local px, py = P.cellX, P.cellY
 
+  -- Water encounters do not follow the player ashore.
+  if spawnKind() == "land" then
+    for i = #entries, 1, -1 do
+      local e = entries[i]
+      if not e.vanishAt and e.kind and e.kind ~= "land" then kill(e) end
+    end
+  end
+
+  -- Repel also clears what is already out there.
+  local H = (rt("src.core.game3.encounters") or {})._h
+  if H and H.repel_active and H.repel_active() and H.wild_level_allowed_by_repel then
+    for i = #entries, 1, -1 do
+      local e = entries[i]
+      if not e.vanishAt and not e.phase and not H.wild_level_allowed_by_repel(e.level) then
+        if owner.log then
+          owner.log:info("VWLOG repel %s lv%d at %d,%d", tostring(e.species), e.level,
+            e.cellX, e.cellY)
+        end
+        kill(e)
+      end
+    end
+  end
+
   for i = #entries, 1, -1 do
     local e = entries[i]
     if e.stepAnim and e.stepAnim > 0 then e.stepAnim = e.stepAnim - 1 end
+    if e.hopStart and now() - e.hopStart >= HOP_SECONDS then e.hopStart = nil end
     if e.moving then
       local t = math.min(1, (now() - (e.moveStart or 0)) / (e.moveSeconds or SPEED_SECONDS.normal))
       e.px = e.fromX + (e.targetPx - e.fromX) * t

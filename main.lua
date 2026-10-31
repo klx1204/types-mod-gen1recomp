@@ -775,6 +775,37 @@ return function(mod)
         return denom ~= nil and shinyRoll(denom)
       end,
     })
+    -- OW_AMBIENT_CRIES_OWE_PRIORITY: the overworld's ambient cry comes from a
+    -- visible mon when there is one, and from the encounter table otherwise.
+    local okAC, AmbientCry = pcall(require, "src.core.game3.ambient_cry")
+    if okAC and AmbientCry and type(AmbientCry.play) == "function"
+        and not AmbientCry._visibleWildCry then
+      AmbientCry._visibleWildCry = true
+      local originalCry = AmbientCry.play
+      AmbientCry.play = function(session)
+        local entry = VisibleWild.cryCandidate and VisibleWild.cryCandidate()
+        if entry then
+          local okA, Audio = pcall(require, "src.core.game3.audio")
+          local okR, Rng = pcall(require, "src.core.game3.rng")
+          local pan = okR and ((Rng.Random() % 88) + 212) or 0
+          if pan >= 128 then pan = pan - 256 end
+          local volume = okR and ((Rng.Random() % 30) + 50) or 60
+          if okA and Audio and Audio.playCry then
+            local played = pcall(Audio.playCry, entry.species,
+              { mode = 0, pan = pan, volume = volume, noDuck = true })
+            if played then
+              if mod.log then
+                mod.log:info("visible wild: ambient cry %s at %d,%d",
+                  tostring(entry.species), entry.cellX, entry.cellY)
+              end
+              return true
+            end
+          end
+        end
+        return originalCry(session)
+      end
+    end
+
     -- Let voxel_world_gen3 see the icons as wild Pokemon (it draws footprints
     -- for kind = "wild_mon").  Wrapped before that mod loads, so its own
     -- wrapper around collectActors sees the entries we add.
