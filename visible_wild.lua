@@ -46,6 +46,8 @@ local VANISH_SECONDS = 0.2
 local WATER_NEAREST = 3
 -- APPROACH_PLAYER_OWE's excited hop
 local HOP_SECONDS = 0.3
+-- Water/underwater spawn and despawn: a ring of ripples.
+local SPLASH_SECONDS = 0.35
 
 -- --- Behaviour table ------------------------------------------------------
 -- gOWESpeciesBehavior in src/data/pokemon/wild_encounter_ow_behavior.h.
@@ -346,6 +348,26 @@ local function painter(entry)
       end
     end
 
+    if entry.splashAt then
+      local t = (now() - entry.splashAt) / SPLASH_SECONDS
+      if t >= 0 and t < 1 then
+        local cx, cy = SX + 16, SY + 27
+        -- foam under the mon, then rings spreading out
+        love.graphics.setColor(0.95, 0.98, 1, (1 - t) * 0.45)
+        love.graphics.ellipse("fill", cx, cy, 11 * (1 - t * 0.25), 4.5 * (1 - t * 0.25))
+        love.graphics.setLineWidth(2)
+        for i = 1, 3 do
+          local k = t - (i - 1) * 0.16
+          if k > 0 and k < 1 then
+            love.graphics.setColor(0.96, 0.99, 1, (1 - k) * 0.9)
+            love.graphics.ellipse("line", cx, cy, 6 + k * 18, 2.2 + k * 7)
+          end
+        end
+        love.graphics.setLineWidth(1)
+        love.graphics.setColor(1, 1, 1, 1)
+      end
+    end
+
     if entry.shiny then
       local t = now()
       for i = 1, 4 do
@@ -393,6 +415,22 @@ local function faceTowards(entry, px, py)
   elseif dy ~= 0 then setFacing(entry, dy > 0 and "down" or "up") end
 end
 
+--- Land, water, or neither, the way expansion classifies a tile for
+--- WE_OWE_RESTRICT_METATILE.  Comparing raw metatile behaviour numbers was
+--- stricter than the original: two different kinds of ground (grass, sand,
+--- cave floor) both count as "land" there.
+local function tileClass(x, y, kind)
+  local C = rt("src.core.game3.collision")
+  if C and C.isWater and C.isWater(x, y) then return "water" end
+  if kind == "underwater" then return "other" end
+  local E = rt("src.core.game3.encounters")
+  if not (E and E.terrainAt) then return "other" end
+  local ok, terrain = pcall(E.terrainAt, x, y)
+  if ok and terrain == "land" then return "land" end
+  if ok and terrain == "water" then return "water" end
+  return "other"
+end
+
 local function canStand(game, entry, tx, ty, px, py)
   if tx == px and ty == py then return false end
   -- WE_OWE_RESTRICT_MAP: never step off the current map.
@@ -400,11 +438,11 @@ local function canStand(game, entry, tx, ty, px, py)
   if C0 and C0.inBounds and not C0.inBounds(tx, ty) then return false end
   if occupied(tx, ty) then return false end
   if not wildGround(tx, ty, entry.kind) then return false end
-  -- WE_OWE_RESTRICT_METATILE: a mon stays on the kind of tile it spawned on,
-  -- so a tall-grass encounter never wanders out onto the path or the water.
-  if entry.terrain ~= nil then
-    local C = rt("src.core.game3.collision")
-    if C and C.behavior and C.behavior(tx, ty) ~= entry.terrain then return false end
+  -- WE_OWE_RESTRICT_METATILE: pret only forbids leaving the class the mon is
+  -- standing on (land cannot cross to water or to a non-encounter tile), so a
+  -- grass encounter may step onto sand but not onto a path or the sea.
+  if entry.terrainClass == "land" or entry.terrainClass == "water" then
+    if tileClass(tx, ty, entry.kind) ~= entry.terrainClass then return false end
   end
   return passable(game, tx, ty, entry.cellX, entry.cellY, entry.elevation)
 end
@@ -658,6 +696,10 @@ local function advanceEncounter(entry, game, px, py)
   local phase = entry.phase
   if phase == "notice" then
     if now() - (entry.phaseAt or 0) < NOTICE_SECONDS then return false end
+    -- InteractWithOverworldWildEncounter runs waitmoncry before the battle,
+    -- so the cry has to finish first.
+    local A = rt("src.core.game3.audio")
+    if A and A.isCryFinished and not A.isCryFinished() then return false end
     local gap = distToPlayer(entry, px, py)
     if APPROACH_ENABLED and gap > 1 then
       entry.phase, entry.phaseAt = "approach", now()
@@ -894,8 +936,7 @@ local function spawnOne(game, mapId)
           local entry = {
             uid = uid, npcId = id, species = pick.species, level = pick.level,
             cellX = x, cellY = y, facing = "down", kind = kind, elevation = elevation,
-            terrain = (rt("src.core.game3.collision") or {}).behavior
-              and rt("src.core.game3.collision").behavior(x, y) or nil,
+            terrainClass = tileClass(x, y, kind),
             px = x * 16, py = y * 16,
             nextMoveAt = now() + IDLE_MIN + math.random() * (IDLE_MAX - IDLE_MIN),
             localId = added and added.localId or nil,
@@ -919,6 +960,7 @@ local function spawnOne(game, mapId)
             return false
           end
           rustleAt(x, y)
+          if kind ~= "land" then entry.splashAt = now() end
           if entry.shiny then
             local okA, Audio = pcall(require, "src.core.game3.audio")
             local okS, SE = pcall(require, "src.core.game3.se_ids")
@@ -1179,6 +1221,7 @@ kill = function(entry)
   if entry.vanishAt then return end
   entry.vanishAt = now()
   rustleAt(entry.cellX, entry.cellY)
+  if entry.kind and entry.kind ~= "land" then entry.splashAt = now() end
   playSe("SE_FLEE")
 end
 

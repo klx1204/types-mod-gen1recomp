@@ -55,6 +55,7 @@ move because the engine has no per-move category yet.
    - `WILD ENCOUNTERS`: `NORMAL` / `OFF` / `1/4` / `1/2` / `2X`
    - `SHINY ODDS`: `1/8192` / `1/4096` / `1/1024` / `1/256` / `1/64` / `ALWAYS`
    - `VISIBLE WILD`: `OFF` / `FEW` / `SOME` / `MANY` — 0 / 2 / 4 / 6 roaming icons
+   - `FOLLOWER`: `ON` / `OFF` — the lead Pokemon follows behind (default ON)
 
 There is no separate `ENHANCEMENTS` page yet: the rows are added to the
 top-level OPTIONS list. `WILD ENCOUNTERS` covers walking and surfing only;
@@ -82,7 +83,10 @@ battle reuses them, so a sparkling icon fights as a shiny.
 Surfing uses the map's water table and spawns on the water itself (at least
 three tiles away, with a splash), diving uses the underwater maps, and water
 encounters leave when you come ashore. A Repel keeps anything below the lead's
-level from appearing and clears what is already out there, and the overworld's
+level from appearing and clears what is already out there. Spawns wait for the
+cry to finish before the battle (expansion's `waitmoncry`), and the terrain lock
+compares land/water classes, so grass, sand and cave floor can mix but a path or
+the sea cannot. The overworld's
 ambient cry comes from one of the visible mons when there is one.
 
 ### Follower
@@ -93,9 +97,13 @@ cells you walked through, turns with you, and catches up when it falls more
 than six tiles behind. Surfing and diving leave it on the shore; it reappears
 at your side when you come back, and a map change starts it under your feet.
 When you hop down a ledge it hops the same ledge at the same time, landing one
-cell behind you instead of walking through the ledge.
+cell behind you instead of walking through the ledge. On a map change it
+appears on the tile behind you and pops out of a Poke Ball, and it bobs a pixel
+while idle. It follows the first party member that is alive and not an egg, so
+a fainted lead swaps to the next one; `FOLLOWER` turns it off entirely.
 
-Face it and press A for one line picked from its state and friendship:
+Face it and press A for one line, checked in order (status, low HP, held item,
+friendship; two variants per tier):
 
 ```text
 status        looks a little unwell

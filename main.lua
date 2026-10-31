@@ -441,6 +441,13 @@ return function(mod)
     return ok and value == true
   end
 
+  -- FOLLOWER defaults to on, so it stores an explicit value instead of
+  -- reusing the off-by-default helper.
+  local function followerOn()
+    local ok, v = pcall(function() return mod.save:get("follower", true) end)
+    return ok and v ~= false
+  end
+
   local function setFlag(key, value)
     pcall(function() mod.save:set(key, value) end)
   end
@@ -552,6 +559,16 @@ return function(mod)
     toggleRow("gen9_always_run", "ALWAYS RUNNING", "always_run")
     toggleRow("gen9_trade_evo", "TRADE EVO LV. 40", "trade_evo")
     toggleRow("gen9_always_catch", "ALWAYS CATCH", "always_catch")
+    out[#out + 1] = {
+      id = "gen9_follower",
+      label = "FOLLOWER",
+      value = function() return followerOn() and "ON" or "OFF" end,
+      step = function()
+        local next_ = not followerOn()
+        pcall(function() mod.save:set("follower", next_) end)
+        return next_
+      end,
+    }
     cycleRow("gen9_encounter_rate", "WILD ENCOUNTERS", "encounter_rate",
       { "NORMAL", "OFF", "1/4", "1/2", "2X" })
     cycleRow("gen9_shiny_odds", "SHINY ODDS", "shiny_odds",
@@ -781,7 +798,11 @@ return function(mod)
     if Follower and Follower.setup then
       local okEF, EngineFollower = pcall(require, "src.world.game3.Follower")
       if okEF and EngineFollower then
-        Follower.setup(mod, { sprites = VisibleWild, engine = EngineFollower })
+        Follower.setup(mod, {
+          sprites = VisibleWild,
+          engine = EngineFollower,
+          enabled = followerOn,
+        })
       end
     end
 
