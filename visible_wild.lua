@@ -15,6 +15,7 @@ local NEAREST = 3                    -- never closer than this
 local FORGET = 15                    -- gone beyond this many tiles
 local SPAWN_SECONDS = 2
 local WALK_MIN, WALK_MAX = 40, 160   -- frames of standing still
+local WALK_FRAMES = 16               -- frames to cross one tile
 
 function VisibleWild.count(index)
   return COUNTS[tonumber(index) or 1] or 0
@@ -378,6 +379,17 @@ function VisibleWild.update()
   for i = #entries, 1, -1 do
     local e = entries[i]
     if e.stepAnim and e.stepAnim > 0 then e.stepAnim = e.stepAnim - 1 end
+    if e.moving then
+      e.progress = (e.progress or 0) + 1 / WALK_FRAMES
+      local t = math.min(1, e.progress)
+      e.px = e.fromX + (e.targetPx - e.fromX) * t
+      e.py = e.fromY + (e.targetPy - e.fromY) * t
+      if e.eo then e.eo.px, e.eo.py = e.px, e.py end
+      if t >= 1 then
+        e.moving = false
+        e.px, e.py = e.targetPx, e.targetPy
+      end
+    end
     if not e.attached or not (e.eo and e.eo.draw) then
       e.attached = nil
       if attach(e) then
@@ -402,15 +414,20 @@ function VisibleWild.update()
       local tx, ty = e.cellX + dx, e.cellY + dy
       if tx ~= px or ty ~= py then
         if not occupied(tx, ty) and wildGround(tx, ty) and passable(game, tx, ty, e.cellX, e.cellY) then
+          local fromX = e.px or (e.cellX * 16)
+          local fromY = e.py or (e.cellY * 16)
           e.cellX, e.cellY = tx, ty
           e.facing = (dx > 0 and "right") or (dx < 0 and "left")
             or (dy > 0 and "down") or "up"
           e.stepAnim = 8
+          e.fromX, e.fromY = fromX, fromY
+          e.targetPx, e.targetPy = tx * 16, ty * 16
+          e.progress = 0
+          e.moving = true
           if e.def then e.def.x, e.def.y = tx, ty end
           if e.eo then
             e.eo.x, e.eo.y = tx * 16, ty * 16
             e.eo.cellX, e.eo.cellY = tx, ty
-            e.eo.px, e.eo.py = tx * 16, ty * 16
           end
         end
       end
