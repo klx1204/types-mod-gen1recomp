@@ -284,6 +284,9 @@ local function owImage(species)
   return cache[id] or nil
 end
 
+--- Shared with the follower: the same sheets, the same quads.
+function VisibleWild.owImage(species) return owImage(species) end
+
 local function owQuad(img, frame)
   local key = "ow:" .. tostring(img) .. ":" .. tostring(frame)
   local store = owner.owQuads
@@ -295,6 +298,8 @@ local function owQuad(img, frame)
   end
   return q
 end
+
+function VisibleWild.owQuad(img, frame) return owQuad(img, frame) end
 
 local function painter(entry)
   return function(self, camX, camY)

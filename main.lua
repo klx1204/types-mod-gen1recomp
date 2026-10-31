@@ -775,6 +775,16 @@ return function(mod)
         return denom ~= nil and shinyRoll(denom)
       end,
     })
+    -- The lead party Pokemon walks behind the player, drawn with the same
+    -- overworld sheets as the visible wild encounters.
+    local Follower = readModule(mod, "follower.lua")
+    if Follower and Follower.setup then
+      local okEF, EngineFollower = pcall(require, "src.world.game3.Follower")
+      if okEF and EngineFollower then
+        Follower.setup(mod, { sprites = VisibleWild, engine = EngineFollower })
+      end
+    end
+
     -- OW_AMBIENT_CRIES_OWE_PRIORITY: the overworld's ambient cry comes from a
     -- visible mon when there is one, and from the encounter table otherwise.
     local okAC, AmbientCry = pcall(require, "src.core.game3.ambient_cry")

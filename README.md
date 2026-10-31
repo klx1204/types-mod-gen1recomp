@@ -85,6 +85,27 @@ encounters leave when you come ashore. A Repel keeps anything below the lead's
 level from appearing and clears what is already out there, and the overworld's
 ambient cry comes from one of the visible mons when there is one.
 
+### Follower
+
+The lead party Pokemon walks behind the player using the same overworld
+sheets as the visible wild encounters (the 386 Gen 3 ones). It follows the
+cells you walked through, turns with you, and catches up when it falls more
+than six tiles behind. Surfing and diving leave it on the shore; it reappears
+at your side when you come back, and a map change starts it under your feet.
+
+Face it and press A for one line picked from its state and friendship:
+
+```text
+status        looks a little unwell
+friendship >= 200   nuzzles up to you
+friendship >= 100   happily follows behind
+friendship >= 50    quietly follows behind
+lower               follows a bit reluctantly
+```
+
+Official gen1recomp has no follower module, so this part simply stays off
+there. Everything else is unaffected.
+
 `data/owe_behavior.lua` assigns behaviours per species, matching expansion's
 `gOWESpeciesBehavior`: `ignore` (default, wander), `chase` (run the player
 down; bumping into you starts the battle), `flee`, `watch`, `approach` (close
