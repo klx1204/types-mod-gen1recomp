@@ -128,25 +128,38 @@ local function pickSlot(mapId)
   local area = t.land or t.grass
   local slots = type(area) == "table" and (area.slots or area.mons or area) or nil
   if type(slots) ~= "table" or #slots == 0 then return nil end
+  -- pret's land slot percentages: 20,20,10,10,10,10,5,5,4,4,1,1.  Without
+  -- them every slot is equally likely and the 1% species turn up as often as
+  -- the common ones.
+  local weights = E.LAND_WEIGHTS or { 20, 20, 10, 10, 10, 10, 5, 5, 4, 4, 1, 1 }
+  local function slotWeight(i, e)
+    return tonumber(e.weight) or tonumber(e.chance) or weights[i] or 1
+  end
   local total = 0
-  for _, e in ipairs(slots) do
-    if type(e) == "table" then
-      total = total + (tonumber(e.weight) or tonumber(e.chance) or 1)
-    end
+  for i, e in ipairs(slots) do
+    if type(e) == "table" then total = total + slotWeight(i, e) end
   end
   if total <= 0 then return nil end
-  local roll = math.random(total)
+  -- pret Random() % total, then cumulative slots: same stream the engine's own
+  -- ChooseWildMonIndex_Land uses.
+  local Rng = rt("src.core.game3.rng")
+  local function rand(n)
+    if Rng and Rng.Random then return Rng.Random() % n end
+    return math.random(n) - 1
+  end
+  local roll = rand(total)
   local acc = 0
-  for _, e in ipairs(slots) do
+  for i, e in ipairs(slots) do
     if type(e) == "table" then
-      acc = acc + (tonumber(e.weight) or tonumber(e.chance) or 1)
-      if roll <= acc then
+      acc = acc + slotWeight(i, e)
+      if roll < acc then
         local id = speciesIdOf(e.species or e[1])
         if id then
+          -- ChooseWildMonLevel: lo + Random() % (hi - lo + 1)
           local lo = tonumber(e.minLevel or e.level or e[2]) or 2
           local hi = tonumber(e.maxLevel or e.level or e[2]) or lo
           if hi < lo then hi = lo end
-          return { species = id, level = lo + math.random(hi - lo + 1) - 1 }
+          return { species = id, level = lo + rand(hi - lo + 1) }
         end
       end
     end
