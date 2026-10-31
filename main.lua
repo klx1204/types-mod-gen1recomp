@@ -738,7 +738,9 @@ return function(mod)
           for i, e in ipairs(VisibleWild.all()) do
             list[#list + 1] = {
               kind = "wild_mon", i = i,
-              x = (e.cellX or 0) * 16, y = (e.cellY or 0) * 16,
+              -- interpolated pixels, so the footprints see them moving
+              x = e.px or (e.cellX or 0) * 16,
+              y = e.py or (e.cellY or 0) * 16,
             }
           end
         end
