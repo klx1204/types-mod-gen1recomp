@@ -188,10 +188,6 @@ local function painter(entry)
     local SY = (self.y or 0) - (camY or 0) - 16
     love.graphics.setBlendMode("alpha")
 
-    -- Ground shadow first, so the sprite sits on it.
-    love.graphics.setColor(0, 0, 0, 0.24)
-    love.graphics.ellipse("fill", SX + 16, SY + 31, 8, 3)
-
     local facing = entry.facing or "down"
     local walking = (entry.stepAnim or 0) > 0
     local frame
