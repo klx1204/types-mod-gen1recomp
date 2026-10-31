@@ -88,7 +88,22 @@ def main():
             # this the sprites get a solid background in game.
             img = Image.open(src)
             if img.mode == "P":
-                img.save(dst, "PNG", transparency=0)
+                # Index 0 is the background.  Write it with black RGB and zero
+                # alpha: the game samples these sheets with linear filtering,
+                # and a coloured transparent pixel bleeds into the silhouette
+                # (it showed up as a blue rim under the sprites).
+                pal = img.getpalette()
+                src_px = img.load()
+                out = Image.new("RGBA", img.size)
+                dst_px = out.load()
+                for yy in range(img.size[1]):
+                    for xx in range(img.size[0]):
+                        i = src_px[xx, yy]
+                        if i == 0:
+                            dst_px[xx, yy] = (0, 0, 0, 0)
+                        else:
+                            dst_px[xx, yy] = (pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2], 255)
+                out.save(dst)
             else:
                 img.convert("RGBA").save(dst)
         else:
