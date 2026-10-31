@@ -746,11 +746,27 @@ return function(mod)
         -- exactly like a random encounter: song from the first transition
         -- frame, the engine's own transition, then the battle screen.
         local extra = { personality = entry.pid }
+        if entry.roamer then extra.roamer = true end
         if entry.gender == "M" or entry.gender == "F" then extra.gender = entry.gender end
         pendingShiny = entry.shiny and true or false
         local ok, err = mod.world:startWildBattle(key, entry.level, extra)
         pendingShiny = nil
         return ok, err
+      end,
+      -- A roamer on this map shows up as one of the visible mons, the way
+      -- expansion lets a roamer take a generated OWE's slot.
+      roamerFor = function(mapId)
+        for _, e in ipairs(VisibleWild.all()) do
+          if e.roamer then return nil end
+        end
+        local okR, Roamer = pcall(require, "src.core.game3.roamer")
+        if not (okR and Roamer and Roamer.instance) then return nil end
+        local okRun, Runtime = pcall(require, "src.core.game3.runtime")
+        local session = okRun and Runtime.getSession and Runtime.getSession()
+        local r = session and session.roamer
+        if not (r and r.active and r.map == mapId) then return nil end
+        local okI, mon = pcall(Roamer.instance, session)
+        return okI and mon or nil
       end,
       isShiny = function()
         local mode = SHINY_ODDS[choice("shiny_odds", SHINY_ODDS)]

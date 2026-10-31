@@ -39,6 +39,9 @@ local NOTICE_SECONDS = 0.55
 local APPROACH_PAUSE = 0.2
 local APPROACH_ENABLED = true
 local FLEE_GIVE_UP = 8               -- blocked steps before a cornered flee despawns
+-- Spawn/despawn: a short rise out of the ground and a sink back into it.
+local APPEAR_SECONDS = 0.2
+local VANISH_SECONDS = 0.2
 
 -- --- Behaviour table ------------------------------------------------------
 -- gOWESpeciesBehavior in src/data/pokemon/wild_encounter_ow_behavior.h.
@@ -247,8 +250,18 @@ end
 
 local function painter(entry)
   return function(self, camX, camY)
+    local rise = 1
+    if entry.appearAt then
+      rise = math.min(1, (now() - entry.appearAt) / APPEAR_SECONDS)
+    end
+    local sink = 0
+    if entry.vanishAt then
+      sink = math.min(1, (now() - entry.vanishAt) / VANISH_SECONDS)
+    end
+    local yOff = (1 - rise) * 6 + sink * 6
+    local alpha = rise * (1 - sink)
     local SX = (self.x or 0) - (camX or 0) - 8
-    local SY = (self.y or 0) - (camY or 0) - 16
+    local SY = (self.y or 0) - (camY or 0) - 16 + yOff
     love.graphics.setBlendMode("alpha")
 
     local facing = entry.facing or "down"
@@ -262,7 +275,7 @@ local function painter(entry)
     if img then
       local flip = facing == "right" and -1 or 1
       local ox = flip < 0 and 32 or 0
-      love.graphics.setColor(1, 1, 1, 1)
+      love.graphics.setColor(1, 1, 1, alpha)
       love.graphics.draw(img, owQuad(img, frame), SX + ox, SY, 0, flip, 1)
     else
       -- No sheet for this species: fall back to the 32x32 party icon.
@@ -270,7 +283,7 @@ local function painter(entry)
       local icon = P and P.icon and P.icon(entry.species)
       if icon and icon.image then
         local q = icon.quads and (icon.quads[0] or icon.quads[1])
-        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.setColor(1, 1, 1, alpha)
         if q then love.graphics.draw(icon.image, q, SX, SY)
         else love.graphics.draw(icon.image, SX, SY) end
       end
@@ -284,7 +297,7 @@ local function painter(entry)
         local px = SX + 16 + math.cos(a) * r
         local py = SY + 16 + math.sin(a) * r * 0.55
         local size = 1.4 + math.sin(t * 9 + i * 2) * 0.7
-        love.graphics.setColor(1, 0.96, 0.72, 0.95)
+        love.graphics.setColor(1, 0.96, 0.72, 0.95 * alpha)
         love.graphics.circle("fill", px, py, size)
       end
       love.graphics.setColor(1, 1, 1, 1)
@@ -458,6 +471,20 @@ local function distToPlayer(entry, px, py)
   return math.abs(entry.cellX - px) + math.abs(entry.cellY - py)
 end
 
+--- Grass under the feet reacts to the mon arriving or leaving.
+local function rustleAt(x, y)
+  local C = rt("src.core.game3.collision")
+  if not (C and C.isGrass and C.isGrass(x, y)) then return end
+  local FE = rt("src.core.game3.field_effects")
+  if FE and FE.tallGrassAt then pcall(FE.tallGrassAt, x, y, false) end
+end
+
+local function playSe(name)
+  local A = rt("src.core.game3.audio")
+  local SE = rt("src.core.game3.se_ids")
+  if A and A.playSe and SE and SE[name] then pcall(A.playSe, SE[name]) end
+end
+
 local function playEmote(entry)
   local FE = rt("src.core.game3.field_effects")
   if FE and FE.startEmote and entry.eo then
@@ -494,6 +521,7 @@ end
 
 --- Advance the encounter sequence.  Returns true when the entry is gone.
 local removeEntry  -- defined below; advanceEncounter removes entries too
+local kill         -- defined below; the encounter sequence despawns through it
 
 local function advanceEncounter(entry, game, px, py)
   local phase = entry.phase
@@ -535,6 +563,8 @@ local function advanceEncounter(entry, game, px, py)
     return true
   end
 
+  if phase ~= "battle" then return false end
+
   -- battle
   if entry.moving then return false end
   if now() - (entry.phaseAt or 0) < APPROACH_PAUSE then return false end
@@ -552,11 +582,11 @@ local function advanceEncounter(entry, game, px, py)
         tostring(entry.dex), entry.level, entry.cellX, entry.cellY,
         now() - (entry.encounterAt or now()))
     end
-    removeEntry(entry)
+    kill(entry)
     if busyEntry == entry then busyEntry = nil end
     -- The map refills on expansion's ramp instead of on the same frame.
     spawnAt = now() + refillDelay()
-    return true
+    return false
   end
   if owner.log then
     owner.log:info("VWLOG battle failed %s: %s", tostring(entry.species), tostring(err))
@@ -567,6 +597,7 @@ end
 
 --- Idle/active behaviour for one mon that is not in an encounter sequence.
 local function stepBehaviour(entry, game, px, py, P)
+  if entry.vanishAt then return end
   local b = entry.behaviour
   if b.move ~= "wander" then
     if entry.active then
@@ -656,7 +687,15 @@ local function spawnOne(game, mapId)
   if Objects and Objects._mapId ~= nil and Objects._mapId ~= mapId then
     return false
   end
-  local pick = pickSlot(mapId)
+  local pick, roamerMon
+  if owner.roamerFor then
+    local okR, mon = pcall(owner.roamerFor, mapId)
+    if okR and type(mon) == "table" then
+      pick = { species = mon.species, level = mon.level }
+      roamerMon = mon
+    end
+  end
+  pick = pick or pickSlot(mapId)
   if not pick then return false end
   local P = playerOf()
   if not (P and P.cellX) then return false end
@@ -679,7 +718,8 @@ local function spawnOne(game, mapId)
           uid = uid + 1
           local Pm = rt("src.core.game3.pokemon")
           local Rng = rt("src.core.game3.rng")
-          local pid = (Rng and Rng.Random32 and Rng.Random32()) or math.random(0, 0xFFFFFFFF)
+          local pid = roamerMon and roamerMon.personality
+            or (Rng and Rng.Random32 and Rng.Random32()) or math.random(0, 0xFFFFFFFF)
           local gender = "U"
           if Pm and Pm.gender then
             local okG, g = pcall(Pm.gender, pick.species, pid)
@@ -701,6 +741,8 @@ local function spawnOne(game, mapId)
             behaviourName = behaviour,
             pid = pid,
             gender = gender,
+            roamer = roamerMon and true or nil,
+            appearAt = now(),
             shiny = owner.isShiny and owner.isShiny() or false,
           }
           entry.dex = Pm and Pm.national and Pm.national(pick.species) or nil
@@ -713,6 +755,7 @@ local function spawnOne(game, mapId)
             table.remove(entries)
             return false
           end
+          rustleAt(x, y)
           if entry.shiny then
             local okA, Audio = pcall(require, "src.core.game3.audio")
             local okS, SE = pcall(require, "src.core.game3.se_ids")
@@ -774,7 +817,7 @@ end
 
 function VisibleWild.at(x, y)
   for _, e in ipairs(entries) do
-    if e.cellX == x and e.cellY == y then return e end
+    if not e.vanishAt and e.cellX == x and e.cellY == y then return e end
     if e.moving and e.prevX == x and e.prevY == y then return e end
   end
 end
@@ -870,7 +913,11 @@ function VisibleWild.update()
         end
       end
     end
-    if not e.attached or not (e.eo and e.eo.draw) then
+    if e.vanishAt and now() - e.vanishAt >= VANISH_SECONDS then
+      removeEntry(e)
+      table.remove(entries, i)
+      if busyEntry == e then busyEntry = nil end
+    elseif not e.attached or not (e.eo and e.eo.draw) then
       e.attached = nil
       if attach(e) then
         e.retry = nil
@@ -882,15 +929,14 @@ function VisibleWild.update()
         e.retry = true
       end
     end
-    if e.phase or busyEntry == e then
+    if (e.phase and not e.vanishAt) or (busyEntry == e and not e.vanishAt) then
       if advanceEncounter(e, game, px, py) then table.remove(entries, i) end
     elseif math.abs(e.cellX - px) > FORGET or math.abs(e.cellY - py) > FORGET then
       if owner.log then
         owner.log:info("VWLOG forget %s lv%d at %d,%d (player %d,%d)",
           tostring(e.species), e.level, e.cellX, e.cellY, px, py)
       end
-      removeEntry(e)
-      table.remove(entries, i)
+      kill(e)
     else
       stepBehaviour(e, game, px, py, P)
       if e.removeNow then table.remove(entries, i) end
@@ -916,6 +962,16 @@ function VisibleWild.update()
   end
 end
 
+--- Play the despawn animation, then take the mon off the map.  Map changes
+--- call removeEntry directly: there is nothing left to look at.
+kill = function(entry)
+  if not entry then return end
+  if entry.vanishAt then return end
+  entry.vanishAt = now()
+  rustleAt(entry.cellX, entry.cellY)
+  playSe("SE_FLEE")
+end
+
 --- An NPC walked into this mon.  Expansion removes a generated OWE instead
 --- of letting it block the NPC, so the same happens here.
 function VisibleWild.bump(entry)
@@ -926,8 +982,7 @@ function VisibleWild.bump(entry)
         owner.log:info("VWLOG bumped away %s lv%d at %d,%d", tostring(e.species),
           e.level, e.cellX, e.cellY)
       end
-      removeEntry(e)
-      table.remove(entries, i)
+      kill(e)
       if busyEntry == e then busyEntry = nil end
       spawnAt = now() + refillDelay()
       return
