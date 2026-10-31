@@ -19,10 +19,13 @@ local VisibleWild = {}
 
 local MAX = 6
 local COUNTS = { 0, 2, 4, 6 }        -- OFF / FEW / SOME / MANY
-local RANGE_X, RANGE_Y = 11, 6       -- spawn window, in tiles
+-- pokeemerald-expansion OWE_SPAWN_WIDTH_TOTAL 15 / HEIGHT_TOTAL 9: the whole
+-- GBA view.  The near limit stays at 3 so nothing pops in under the player.
+local RANGE_X, RANGE_Y = 7, 4        -- spawn window radius, in tiles
 local NEAREST = 3                    -- never closer than this
 local FORGET = 15                    -- gone beyond this many tiles
-local SPAWN_SECONDS = 2
+-- SetNewOWESpawnCountdown: 30 frames plus 30 per mon already out.
+local SPAWN_FRAMES_MIN, SPAWN_FRAMES_PER = 30, 30
 
 -- pokeemerald-expansion's SpeedOWE, as seconds to cross one tile
 local SPEED_SECONDS = {
@@ -94,6 +97,10 @@ end
 
 local function playerOf()
   return rt("src.core.game3.player")
+end
+
+local function refillDelay()
+  return (SPAWN_FRAMES_MIN + SPAWN_FRAMES_PER * #entries) / 60
 end
 
 local function now()
@@ -547,9 +554,8 @@ local function advanceEncounter(entry, game, px, py)
     end
     removeEntry(entry)
     if busyEntry == entry then busyEntry = nil end
-    -- The spec's two-second refill: a battled mon is gone, and the map does
-    -- not refill on the same frame.
-    spawnAt = now() + SPAWN_SECONDS
+    -- The map refills on expansion's ramp instead of on the same frame.
+    spawnAt = now() + refillDelay()
     return true
   end
   if owner.log then
@@ -904,18 +910,9 @@ function VisibleWild.update()
   VisibleWild.sweep()
 
   if #entries < most and now() >= spawnAt then
-    -- Walking into a map should show Pokemon straight away: fill the whole
-    -- allowance on the first pass, then top up one every two seconds.
-    local want = (#entries == 0) and most or 1
-    local spawned = false
-    for _ = 1, want do
-      if #entries >= most then break end
-      if not spawnOne(game, mapId) then break end
-      spawned = true
-    end
-    -- Only start the two-second clock once something actually appeared; a
-    -- failed attempt (map still loading) retries on the next update.
-    if spawned then spawnAt = now() + SPAWN_SECONDS end
+    -- One at a time, on expansion's ramp: an empty map fills quickly, a busy
+    -- one slowly.  A failed attempt (map still loading) retries next update.
+    if spawnOne(game, mapId) then spawnAt = now() + refillDelay() end
   end
 end
 
@@ -932,7 +929,7 @@ function VisibleWild.bump(entry)
       removeEntry(e)
       table.remove(entries, i)
       if busyEntry == e then busyEntry = nil end
-      spawnAt = now() + SPAWN_SECONDS
+      spawnAt = now() + refillDelay()
       return
     end
   end
