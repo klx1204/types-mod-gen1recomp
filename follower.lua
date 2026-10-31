@@ -12,6 +12,10 @@ local owner = nil
 local sprites = nil
 local state = { species = nil, sprite = nil }
 
+-- pret DoJumpSpriteMovement y2 for a normal/low ledge hop: 16 entries over
+-- 32 frames, the same curve the player's own jump uses.
+local JUMP_Y = { -2, -4, -6, -8, -9, -10, -10, -10, -9, -8, -6, -5, -3, -2, 0, 0 }
+
 local function rt(name)
   local m = package.loaded[name]
   if type(m) == "table" then return m end
@@ -68,6 +72,13 @@ local function newSprite()
       end
       local SX = (x or 0) - (camX or 0) - 8
       local SY = (y or 0) - (camY or 0) - 16
+      -- Ledge hops arc like the player's: the engine moves the companion two
+      -- cells, this lifts it over the edge.
+      local npc = owner and owner.engine and owner.engine.current and owner.engine.current()
+      if npc and npc.jumping and npc.moving then
+        local idx = math.floor(((npc.progress or 1) - 1) / 2)
+        if idx >= 0 then SY = SY + (JUMP_Y[idx + 1] or 0) end
+      end
       local flip = facing == "right" and -1 or 1
       love.graphics.setBlendMode("alpha")
       love.graphics.setColor(1, 1, 1, 1)
@@ -129,7 +140,7 @@ function Follower.setup(mod, opts)
   -- the smoke test, where there is no engine to find.
   local F = opts.engine
   if not F then return nil end
-  owner = { mod = mod, log = mod.log }
+  owner = { mod = mod, log = mod.log, engine = F }
   sprites = opts.sprites or nil
   if F.setShouldSpawn then F.setShouldSpawn(shouldShow) end
   if not F._visibleWildFollower then
@@ -146,6 +157,20 @@ function Follower.setup(mod, opts)
           state.sprite = npc.sprite
         end
         npc.hidden = false
+        -- A move of two or more cells is a ledge hop: give it the player's
+        -- jump length and draw the arc (the engine would walk it through the
+        -- ledge at double speed).
+        if npc.moving and npc.targetX then
+          local dist = math.abs(npc.targetX - npc.cellX) + math.abs(npc.targetY - npc.cellY)
+          if dist >= 2 then
+            npc.jumping = true
+            npc.stepFrames = 32
+          else
+            npc.jumping = false
+          end
+        else
+          npc.jumping = false
+        end
       end
     end
     local originalTalk = F.talk

@@ -92,6 +92,8 @@ sheets as the visible wild encounters (the 386 Gen 3 ones). It follows the
 cells you walked through, turns with you, and catches up when it falls more
 than six tiles behind. Surfing and diving leave it on the shore; it reappears
 at your side when you come back, and a map change starts it under your feet.
+When you hop down a ledge it hops the same ledge at the same time, landing one
+cell behind you instead of walking through the ledge.
 
 Face it and press A for one line picked from its state and friendship:
 
