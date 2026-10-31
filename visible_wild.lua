@@ -388,15 +388,15 @@ function VisibleWild.update()
       local t = math.min(1, (now() - (e.moveStart or 0)) / MOVE_SECONDS)
       e.px = e.fromX + (e.targetPx - e.fromX) * t
       e.py = e.fromY + (e.targetPy - e.fromY) * t
-      if e.eo then
-        e.eo.px, e.eo.py = e.px, e.py
-        e.eo.moving = true
-      end
+      -- Only the pixel position, never eo.moving: that flag belongs to the
+      -- engine's own object movement, and setting it makes tickMotion snap
+      -- the actor back to its previous cell when its step finishes.
+      if e.eo then e.eo.px, e.eo.py = e.px, e.py end
       if t >= 1 then
         e.moving = false
         e.px, e.py = e.targetPx, e.targetPy
+        if e.eo then e.eo.px, e.eo.py = e.px, e.py end
         e.nextMoveAt = now() + IDLE_MIN + math.random() * (IDLE_MAX - IDLE_MIN)
-        if e.eo then e.eo.moving = false end
       end
     end
     if not e.attached or not (e.eo and e.eo.draw) then
@@ -424,7 +424,9 @@ function VisibleWild.update()
       local dy = (dir == 1 and -1) or (dir == 2 and 1) or 0
       local tx, ty = e.cellX + dx, e.cellY + dy
       if tx ~= px or ty ~= py then
-        if not occupied(tx, ty) and wildGround(tx, ty) and passable(game, tx, ty, e.cellX, e.cellY) then
+        -- Never start on top of an engine step the event is already running.
+        if not (e.eo and e.eo.moving)
+            and not occupied(tx, ty) and wildGround(tx, ty) and passable(game, tx, ty, e.cellX, e.cellY) then
           local fromX = e.px or (e.cellX * 16)
           local fromY = e.py or (e.cellY * 16)
           e.cellX, e.cellY = tx, ty
