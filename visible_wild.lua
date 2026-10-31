@@ -142,48 +142,88 @@ local function monPicture(species, shiny, back)
   return ok and entry or nil
 end
 
+-- Overworld sheets shipped with the mod: 192x32, six 32x32 frames
+-- (down 0-1, up 2-3, side 4-5).  Loaded through the mod sandbox, never from
+-- an absolute path.
+local function owImage(species)
+  if not owner or not owner.mod then return nil end
+  local cache = owner.owCache
+  if not cache then cache = {}; owner.owCache = cache end
+  local id = tonumber(species)
+  if not id then return nil end
+  local hit = cache[id]
+  if hit ~= nil then return hit or nil end
+  if owner.owList and not owner.owList[id] then cache[id] = false; return nil end
+  local ok, bytes = pcall(function() return owner.mod:read("assets/pokemon_ow/" .. id .. ".png") end)
+  if not ok or type(bytes) ~= "string" or #bytes == 0 then
+    cache[id] = false
+    return nil
+  end
+  local made = pcall(function()
+    local fd = love.filesystem.newFileData(bytes, tostring(id) .. ".png")
+    local data = love.image.newImageData(fd)
+    local img = love.graphics.newImage(data)
+    if img.setFilter then img:setFilter("nearest", "nearest") end
+    cache[id] = img
+  end)
+  if not made then cache[id] = false end
+  return cache[id] or nil
+end
+
+local function owQuad(img, frame)
+  local key = "ow:" .. tostring(img) .. ":" .. tostring(frame)
+  local store = owner.owQuads
+  if not store then store = {}; owner.owQuads = store end
+  local q = store[key]
+  if not q then
+    q = love.graphics.newQuad(frame * 32, 0, 32, 32, 192, 32)
+    store[key] = q
+  end
+  return q
+end
+
 local function painter(entry)
   return function(self, camX, camY)
-    local P = rt("src.core.game3.pokemon")
-    local icon = P and P.icon and P.icon(entry.species)
-    if not (icon and icon.image) then
-      if owner.log then owner.log:info("visible wild: no icon for %s", tostring(entry.species)) end
-      return
-    end
-    local q = icon.quads and (icon.quads[0] or icon.quads[1])
-    local sx = (self.x or 0) - (camX or 0) - 8
-    local sy = (self.y or 0) - (camY or 0) - 16
+    local SX = (self.x or 0) - (camX or 0) - 8
+    local SY = (self.y or 0) - (camY or 0) - 16
     love.graphics.setBlendMode("alpha")
-    love.graphics.setColor(1, 1, 1, 1)
-    -- Up/down use the battle art (64x64 scaled to 32); left/right flip the
-    -- party icon, which reads better than a front picture sliding sideways.
+
+    -- Ground shadow first, so the sprite sits on it.
+    love.graphics.setColor(0, 0, 0, 0.24)
+    love.graphics.ellipse("fill", SX + 16, SY + 31, 8, 3)
+
     local facing = entry.facing or "down"
-    local drawn = false
-    if facing == "up" or facing == "down" then
-      local pic = monPicture(entry.species, entry.shiny, facing == "up")
-      if pic and pic.image then
-        love.graphics.draw(pic.image, sx, sy, 0, 0.5, 0.5)
-        drawn = true
-      end
-    end
-    if not drawn then
-      local flip = facing == "left" and -1 or 1
+    local walking = (entry.stepAnim or 0) > 0
+    local frame
+    if facing == "up" then frame = walking and 3 or 2
+    elseif facing == "left" or facing == "right" then frame = walking and 5 or 4
+    else frame = walking and 1 or 0 end
+
+    local img = owImage(entry.species)
+    if img then
+      local flip = facing == "right" and -1 or 1
       local ox = flip < 0 and 32 or 0
-      if q then
-        love.graphics.draw(icon.image, q, sx + ox, sy, 0, flip, 1)
-      else
-        love.graphics.draw(icon.image, sx + ox, sy, 0, flip, 1)
+      love.graphics.setColor(1, 1, 1, 1)
+      love.graphics.draw(img, owQuad(img, frame), SX + ox, SY, 0, flip, 1)
+    else
+      -- No sheet for this species: fall back to the 32x32 party icon.
+      local P = rt("src.core.game3.pokemon")
+      local icon = P and P.icon and P.icon(entry.species)
+      if icon and icon.image then
+        local q = icon.quads and (icon.quads[0] or icon.quads[1])
+        love.graphics.setColor(1, 1, 1, 1)
+        if q then love.graphics.draw(icon.image, q, SX, SY)
+        else love.graphics.draw(icon.image, SX, SY) end
       end
     end
+
     if entry.shiny then
-      -- Four sparkles orbiting the icon, emerald-3ds-fairy's idea without
-      -- needing a particle sprite.
       local t = now()
       for i = 1, 4 do
         local a = t * 2.2 + i * math.pi / 2
         local r = 17 + math.sin(t * 5 + i) * 3
-        local px = sx + 16 + math.cos(a) * r
-        local py = sy + 16 + math.sin(a) * r * 0.55
+        local px = SX + 16 + math.cos(a) * r
+        local py = SY + 16 + math.sin(a) * r * 0.55
         local size = 1.4 + math.sin(t * 9 + i * 2) * 0.7
         love.graphics.setColor(1, 0.96, 0.72, 0.95)
         love.graphics.circle("fill", px, py, size)
@@ -336,6 +376,7 @@ function VisibleWild.update()
 
   for i = #entries, 1, -1 do
     local e = entries[i]
+    if e.stepAnim and e.stepAnim > 0 then e.stepAnim = e.stepAnim - 1 end
     if not e.attached or not (e.eo and e.eo.draw) then
       e.attached = nil
       if attach(e) then
@@ -363,6 +404,7 @@ function VisibleWild.update()
           e.cellX, e.cellY = tx, ty
           e.facing = (dx > 0 and "right") or (dx < 0 and "left")
             or (dy > 0 and "down") or "up"
+          e.stepAnim = 8
           if e.def then e.def.x, e.def.y = tx, ty end
           if e.eo then
             e.eo.x, e.eo.y = tx * 16, ty * 16
@@ -407,6 +449,8 @@ end
 function VisibleWild.setup(mod, opts)
   owner = {
     modId = mod.id,
+    mod = mod,
+    owList = opts.owList,
     world = mod.world,
     setting = opts.setting,
     isShiny = opts.isShiny,

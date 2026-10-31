@@ -712,7 +712,9 @@ return function(mod)
   local VisibleWild = readModule(mod, "visible_wild.lua")
   if VisibleWild then
     local VISIBLE_WILD = { "OFF", "FEW", "SOME", "MANY" }
+    local owList = readModule(mod, "data/ow_sprites.lua") or {}
     VisibleWild.setup(mod, {
+      owList = owList,
       setting = function() return choice("visible_wild", VISIBLE_WILD) end,
       log = mod.log,
       isShiny = function()
