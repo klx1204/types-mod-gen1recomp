@@ -727,8 +727,11 @@ return function(mod)
     -- Let voxel_world_gen3 see the icons as wild Pokemon (it draws footprints
     -- for kind = "wild_mon").  Wrapped before that mod loads, so its own
     -- wrapper around collectActors sees the entries we add.
+    local okFV, FieldView = pcall(require, "src.core.game3.field_view")
+    local positionOnly = okFV and FieldView and FieldView.POSITION_ONLY_ACTORS == true
     local okFX, FieldEffects = pcall(require, "src.core.game3.field_effects")
-    if okFX and FieldEffects and type(FieldEffects.collectActors) == "function"
+    if positionOnly and okFX and FieldEffects
+        and type(FieldEffects.collectActors) == "function"
         and not FieldEffects._wildActorsWrapped then
       FieldEffects._wildActorsWrapped = true
       local originalCollect = FieldEffects.collectActors
@@ -741,6 +744,10 @@ return function(mod)
               -- interpolated pixels, so the footprints see them moving
               x = e.px or (e.cellX or 0) * 16,
               y = e.py or (e.cellY or 0) * 16,
+              -- these carry no art: the icon is drawn by our own painter on the
+              -- real NPC.  Without this the engine drew the placeholder
+              -- rectangle under every one of them.
+              noDraw = true,
             }
           end
         end

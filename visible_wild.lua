@@ -14,8 +14,11 @@ local RANGE_X, RANGE_Y = 11, 6       -- spawn window, in tiles
 local NEAREST = 3                    -- never closer than this
 local FORGET = 15                    -- gone beyond this many tiles
 local SPAWN_SECONDS = 2
-local WALK_MIN, WALK_MAX = 40, 160   -- frames of standing still
-local WALK_FRAMES = 16               -- frames to cross one tile
+-- pokeemerald-expansion's overworld encounters: MOVEMENT_SPEED_NORMAL is 16
+-- frames per tile and sMovementDelaysOWE is {64, 80, 96, 128}.  Times, not
+-- frame counts, because the field tick is not guaranteed to run once a frame.
+local MOVE_SECONDS = 16 / 60
+local IDLE_MIN, IDLE_MAX = 64 / 60, 128 / 60
 
 function VisibleWild.count(index)
   return COUNTS[tonumber(index) or 1] or 0
@@ -276,7 +279,9 @@ local function spawnOne(game, mapId)
           uid = uid + 1
           local entry = {
             uid = uid, npcId = id, species = pick.species, level = pick.level,
-            cellX = x, cellY = y, facing = "down", idle = math.random(WALK_MIN, WALK_MAX),
+            cellX = x, cellY = y, facing = "down",
+            px = x * 16, py = y * 16,
+            nextMoveAt = now() + IDLE_MIN + math.random() * (IDLE_MAX - IDLE_MIN),
             localId = added and added.localId or nil,
             def = added,
             shiny = owner.isShiny and owner.isShiny() or false,
@@ -380,8 +385,7 @@ function VisibleWild.update()
     local e = entries[i]
     if e.stepAnim and e.stepAnim > 0 then e.stepAnim = e.stepAnim - 1 end
     if e.moving then
-      e.progress = (e.progress or 0) + 1 / WALK_FRAMES
-      local t = math.min(1, e.progress)
+      local t = math.min(1, (now() - (e.moveStart or 0)) / MOVE_SECONDS)
       e.px = e.fromX + (e.targetPx - e.fromX) * t
       e.py = e.fromY + (e.targetPy - e.fromY) * t
       if e.eo then
@@ -391,6 +395,7 @@ function VisibleWild.update()
       if t >= 1 then
         e.moving = false
         e.px, e.py = e.targetPx, e.targetPy
+        e.nextMoveAt = now() + IDLE_MIN + math.random() * (IDLE_MAX - IDLE_MIN)
         if e.eo then e.eo.moving = false end
       end
     end
@@ -409,8 +414,10 @@ function VisibleWild.update()
     if math.abs(e.cellX - px) > FORGET or math.abs(e.cellY - py) > FORGET then
       removeEntry(e)
       table.remove(entries, i)
-    elseif e.idle and e.idle > 0 then
-      e.idle = e.idle - 1
+    elseif e.moving then
+      -- stepped above
+    elseif now() < (e.nextMoveAt or 0) then
+      -- waiting
     else
       local dir = math.random(4)
       local dx = (dir == 3 and 1) or (dir == 4 and -1) or 0
@@ -426,7 +433,7 @@ function VisibleWild.update()
           e.stepAnim = 8
           e.fromX, e.fromY = fromX, fromY
           e.targetPx, e.targetPy = tx * 16, ty * 16
-          e.progress = 0
+          e.moveStart = now()
           e.moving = true
           if e.def then e.def.x, e.def.y = tx, ty end
           if e.eo then
@@ -435,7 +442,9 @@ function VisibleWild.update()
           end
         end
       end
-      e.idle = math.random(WALK_MIN, WALK_MAX)
+      if not e.moving then
+        e.nextMoveAt = now() + IDLE_MIN + math.random() * (IDLE_MAX - IDLE_MIN)
+      end
     end
   end
 
