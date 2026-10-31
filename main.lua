@@ -700,7 +700,16 @@ return function(mod)
     end
     return math.random(denom) == 1
   end
+  -- A visible wild encounter rolls its shiny bit when it spawns, so the battle
+  -- has to use that decision instead of rolling a second time; otherwise a
+  -- sparkling icon fights as an ordinary mon.
+  local pendingShiny
   mod.hooks:wrap("shiny.roll", function(next, ctx)
+    if pendingShiny ~= nil then
+      local decided = pendingShiny
+      pendingShiny = nil
+      return decided
+    end
     local mode = SHINY_ODDS[choice("shiny_odds", SHINY_ODDS)]
     if mode == "ALWAYS" then return true end
     local denom = SHINY_DENOM[mode]
@@ -713,10 +722,33 @@ return function(mod)
   if VisibleWild then
     local VISIBLE_WILD = { "OFF", "FEW", "SOME", "MANY" }
     local owList = readModule(mod, "data/ow_sprites.lua") or {}
+    local oweBehaviour = readModule(mod, "data/owe_behavior.lua") or {}
     VisibleWild.setup(mod, {
       owList = owList,
       setting = function() return choice("visible_wild", VISIBLE_WILD) end,
       log = mod.log,
+      behaviourFor = function(species)
+        return oweBehaviour[tonumber(species) or species]
+      end,
+      -- Called once the mon has walked up to the player.
+      startBattle = function(entry)
+        -- The ROM key, not the localized display name: the battle API
+        -- resolves species by the English constant.
+        local key = entry.species
+        local okP, Pokemon = pcall(require, "src.core.game3.pokemon")
+        if okP and Pokemon then
+          local rom = Pokemon._zhRomNames and Pokemon._zhRomNames[entry.species]
+          if rom then key = rom end
+        end
+        -- Same personality and gender the icon was rolled with, and the same
+        -- shiny decision.
+        local extra = { personality = entry.pid }
+        if entry.gender == "M" or entry.gender == "F" then extra.gender = entry.gender end
+        pendingShiny = entry.shiny and true or false
+        local ok, err = mod.world:startWildBattle(key, entry.level, extra)
+        pendingShiny = nil
+        return ok, err
+      end,
       isShiny = function()
         local mode = SHINY_ODDS[choice("shiny_odds", SHINY_ODDS)]
         if mode == "ALWAYS" then return true end
@@ -778,26 +810,21 @@ return function(mod)
       Collision._visibleWildWrapped = true
       local originalCanEnter = Collision.canEnter
       Collision.canEnter = function(game, x, y, opts, ...)
+        -- A wild mon testing its next tile walks through the same check.
+        if VisibleWild.isStepping and VisibleWild.isStepping() then
+          return originalCanEnter(game, x, y, opts, ...)
+        end
         local entry = VisibleWild.at(x, y)
         if entry then
-          -- VWLOG: what the player actually bumped into, and the species the
-          -- battle will use.  If these disagree with the sprite on screen the
-          -- entry cell and the drawn object have drifted apart.
+          -- Block the step and play the encounter script: "!", cry, walk up.
+          -- The battle starts from VisibleWild's own state machine, and the
+          -- mon only disappears once a battle actually began.
           local Pm = pcall(require, "src.core.game3.pokemon") and require("src.core.game3.pokemon")
-          mod.log:info("VWLOG encounter cell %d,%d -> internal %s dex %s lv%d", x, y,
+          mod.log:info("VWLOG bump cell %d,%d -> internal %s dex %s lv%d pid=%s shiny=%s", x, y,
             tostring(entry.species),
             tostring(Pm and Pm.national and Pm.national(entry.species) or "?"),
-            entry.level)
-          VisibleWild.remove(entry)
-          -- The ROM key, not the localized display name: the battle API
-          -- resolves species by the English constant.
-          local key = entry.species
-          local okP, Pokemon = pcall(require, "src.core.game3.pokemon")
-          if okP and Pokemon then
-            local rom = Pokemon._zhRomNames and Pokemon._zhRomNames[entry.species]
-            if rom then key = rom end
-          end
-          mod.world:startWildBattle(key, entry.level)
+            entry.level, tostring(entry.pid), tostring(entry.shiny))
+          VisibleWild.beginEncounter(entry)
           return false, "entity"
         end
         return originalCanEnter(game, x, y, opts, ...)

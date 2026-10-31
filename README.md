@@ -60,6 +60,31 @@ There is no separate `ENHANCEMENTS` page yet: the rows are added to the
 top-level OPTIONS list. `WILD ENCOUNTERS` covers walking and surfing only;
 fishing, Rock Smash and story encounters keep the game's own rate.
 
+### Visible wild
+
+`VISIBLE WILD` puts the map's own wild Pokemon on its encounter tiles as
+overworld sprites (all 386 Gen 3 species, six frames: down / up / side).
+While it is not `OFF`, random encounters are off: the only way into a battle
+is bumping into one. One is topped up every two seconds, the one you battle
+disappears, anything 15 tiles away is dropped and a map change clears them
+all. `FEW` / `SOME` / `MANY` are 2 / 4 / 6.
+
+Bumping does not start the battle at once. The sequence follows
+pokeemerald-expansion's own encounter script: the mon turns to face you, an
+exclamation mark pops over its head, its cry plays, it walks up to you, and
+then the battle starts. Pacing is expansion's too: 16 frames (0.27 s) a tile
+and 64-128 frames (1.07-2.13 s) standing still, and the wander never turns
+180 degrees, only straight on or 90.
+
+A mon's personality, gender and shiny bit are rolled when it spawns and the
+battle reuses them, so a sparkling icon fights as a shiny.
+
+`data/owe_behavior.lua` assigns behaviours per species, matching expansion's
+`gOWESpeciesBehavior`: `ignore` (default, wander), `chase` (run the player
+down; bumping into you starts the battle), `flee`, `watch`, `approach` (close
+to one tile), `despawn`. The notice cone is 4 tiles deep and 3 wide, and a mon
+gives up past 5 tiles, the same defaults as expansion.
+
 The data mode can only be changed outside battle. In battle the option refuses
 the change and keeps the current mode.
 
